@@ -1,9 +1,11 @@
-React-based platform designed for AI-powered mock interviews, performance analysis, and personalized coaching.
+AI Mock Interview Platform
+
+A React platform for AI mock interviews and personalized coaching.
 
 Features
-Authentication System
+Authentication
 
-User login and registration
+User login/registration
 
 Password recovery
 
@@ -11,72 +13,69 @@ Email verification
 
 Profile setup
 
-Dashboard and Analytics
+Dashboard
 
-Admin dashboard for management
+Admin dashboard
 
 User dashboard with performance overview
 
-Weakness analysis and improvement recommendations
+Weakness analysis
 
-Interview history and statistics
+Interview history
 
 Interview System
 
-Live AI interview setup and configuration
+Live AI interview setup
 
 Voice-based interview sessions
 
-Real-time feedback and scoring
+Real-time feedback
 
-Multiple interview types (Behavioral, Technical, Situational)
+Multiple interview types
 
 Content Management
 
-Question bank with categorized questions
+Question bank
 
-Personalized coaching recommendations
+Coaching recommendations
 
-Performance tracking and analytics
+Performance tracking
 
 Account Management
 
 User profile management
 
-Subscription plans and billing
+Subscription plans
 
-Application settings and preferences
+Application settings
 
-Pricing and plan selection
+Pricing
 
 Tech Stack
 
-Frontend: React 19.1.1
+Frontend: React
 
-Routing: React Router DOM 7.8.0
+Routing: React Router DOM
 
-Icons: Lucide React 0.539.0
+Icons: Lucide React
 
-Build Tool: Vite 7.1.0
+Build Tool: Vite
 
-Styling: Custom CSS with modern design patterns
+Styling: Custom CSS
 
 Installation
 
-Clone the repository.
+Clone the repo.
 
 Install dependencies:
 
 npm install
 
-
-Start the development server:
+Start the dev server:
 
 npm run dev
 
-
-Open http://localhost:3000
- in your browser.
+Open http://localhost:3000 in your browser.
 
 Deployment
 Netlify Deployment
@@ -85,24 +84,21 @@ Build the project:
 
 npm run build
 
-
 Deploy to Netlify:
 
-Connect the repository to Netlify
+Connect the repo to Netlify
 
 Build command: npm run build
 
 Publish directory: dist
 
-The netlify.toml and _redirects files are already configured
-
 Manual Deployment
 
-Build the project: npm run build
+Build: npm run build
 
 Upload the dist folder to your hosting provider
 
-Configure your server to serve index.html for all routes (SPA routing)
+Configure your server to serve index.html
 
 Available Routes
 Authentication
@@ -153,20 +149,20 @@ Utility
 
 Design Features
 
-Responsive design for desktop, tablet, and mobile
+Responsive design
 
-Modern, professional user interface
+Modern UI
 
-Consistent branding across the platform
+Consistent branding
 
-Smooth animations and interactive elements
+Smooth animations
 
-Accessibility with proper contrast and semantic HTML
+Accessibility
 
 Configuration
 Environment Variables
 
-No environment variables are required for this prototype.
+No env vars required.
 
 Build Configuration
 
@@ -174,44 +170,44 @@ Output directory: dist
 
 Asset optimization enabled
 
-Code splitting configured for optimal loading
+Code splitting configured
 
-Source maps disabled for production
+Source maps disabled
 
 Performance
 
-Optimized bundle with code splitting
+Optimized bundle
 
-Asset optimization for faster loading
+Asset optimization
 
-Modern ES6+ build using Vite
+Modern ES6+ build
 
-Lazy loading for components
+Lazy loading
 
 Contributing
 
-This is a prototype application. For production use, consider adding:
+This is a prototype. Consider adding:
 
-A backend for authentication
+Backend for authentication
 
 Real AI interview functionality
 
 Database integration
 
-Comprehensive error handling
+Error handling
 
 Automated testing
 
 License
 
-This project is a prototype created for demonstration purposes.
+This project is a prototype.
 
-Quick Start for Development
+Quick Start
 
-Visit /categories to view all available routes
+Visit /categories to view all routes
 
-Begin with /login for the authentication flow
+Begin with /login
 
-Use /user-dashboard as the main user interface
+Use /user-dashboard
 
-Explore /live-ai-interview to test the interview system
+Explore /live-ai-interview
