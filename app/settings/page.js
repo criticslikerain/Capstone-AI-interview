@@ -2,17 +2,11 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Home,
-  Clock,
-  Zap,
   HelpCircle,
-  CreditCard,
-  User,
-  Settings,
   ChevronRight,
   Info
 } from 'lucide-react'
-import ChatBubbleLogo from '../../components/ChatBubbleLogo'
+import Sidebar from '../../components/Sidebar'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -23,44 +17,6 @@ export default function SettingsPage() {
   const [speakingSpeed, setSpeakingSpeed] = useState('Normal')
   const [instantRating, setInstantRating] = useState(true)
   const [retryAnswer, setRetryAnswer] = useState(true)
-
-  const handleNavigation = (itemId) => {
-    switch (itemId) {
-      case 'dashboard':
-        router.push('/user-dashboard')
-        break
-      case 'live-interview':
-        router.push('/live-ai-interview')
-        break
-      case 'past-interviews':
-        router.push('/weakness-overview')
-        break
-      case 'question-bank':
-        router.push('/question-bank')
-        break
-      case 'subscriptions':
-        router.push('/my-plan')
-        break
-      case 'profile':
-        router.push('/profile')
-        break
-      case 'settings':
-        router.push('/settings')
-        break
-      default:
-        break
-    }
-  }
-
-  const sidebarItems = [
-    { id: 'dashboard', icon: Home, label: 'Dashboard' },
-    { id: 'past-interviews', icon: Clock, label: 'Past Interviews' },
-    { id: 'live-interview', icon: Zap, label: 'Live AI Interview' },
-    { id: 'question-bank', icon: HelpCircle, label: 'Question Bank' },
-    { id: 'subscriptions', icon: CreditCard, label: 'Subscriptions' },
-    { id: 'profile', icon: User, label: 'Profile' },
-    { id: 'settings', icon: Settings, label: 'Settings' }
-  ]
 
   const ToggleSwitch = ({ enabled, onToggle }) => (
     <div
@@ -99,99 +55,7 @@ export default function SettingsPage() {
       overflow: 'hidden'
     }}>
       {/* Sidebar */}
-      <div style={{
-        width: '280px',
-        backgroundColor: '#1f2937',
-        backgroundImage: 'url("https://images.pexels.com/photos/12902862/pexels-photo-12902862.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        color: 'white',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        height: '100vh',
-        zIndex: 10
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(31, 41, 55, 0.9)',
-          zIndex: 1
-        }}></div>
-
-        <div style={{
-          position: 'relative',
-          zIndex: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%'
-        }}>
-          <div style={{
-            padding: '2rem 1.5rem',
-            borderBottom: '1px solid rgba(55, 65, 81, 0.5)'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem'
-            }}>
-              <ChatBubbleLogo size={48} />
-              <h2 style={{
-                fontSize: '1.25rem',
-                fontWeight: 'bold',
-                margin: 0,
-                color: 'white'
-              }}>
-                InterviewPro
-              </h2>
-            </div>
-          </div>
-
-          <nav style={{ flex: 1, padding: '1rem 0' }}>
-            {sidebarItems.map((item) => {
-              const Icon = item.icon
-              const isActive = item.id === 'settings'
-
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavigation(item.id)}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.75rem 1.5rem',
-                    backgroundColor: isActive ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
-                    color: 'white',
-                    border: 'none',
-                    borderLeft: isActive ? '4px solid #06b6d4' : '4px solid transparent',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    textAlign: 'left',
-                    transition: 'all 0.2s',
-                    position: 'relative'
-                  }}
-                  onMouseOver={(e) => {
-                    if (!isActive) e.target.style.backgroundColor = 'rgba(55, 65, 81, 0.7)'
-                  }}
-                  onMouseOut={(e) => {
-                    if (!isActive) e.target.style.backgroundColor = 'transparent'
-                  }}
-                >
-                  <Icon size={20} />
-                  {item.label}
-                </button>
-              )
-            })}
-          </nav>
-        </div>
-      </div>
+      <Sidebar activeItem="settings" />
 
       {/* Main Content */}
       <div style={{
@@ -209,8 +73,8 @@ export default function SettingsPage() {
           <div style={{
             background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%)',
             position: 'relative',
-            paddingTop: '3rem',
-            paddingBottom: '6rem',
+            paddingTop: '2rem',
+            paddingBottom: '3rem',
             color: 'white',
             textAlign: 'center'
           }}>
@@ -265,7 +129,7 @@ export default function SettingsPage() {
             maxWidth: '1000px',
             margin: '0 auto',
             padding: '2rem',
-            marginTop: '-3rem',
+            marginTop: '2rem',
             position: 'relative',
             zIndex: 3
           }}>
@@ -274,8 +138,7 @@ export default function SettingsPage() {
               backgroundColor: 'white',
               borderRadius: '16px',
               padding: '2rem',
-              marginBottom: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              marginBottom: '2rem'
             }}>
               <h2 style={{
                 fontSize: '1.5rem',
@@ -312,8 +175,7 @@ export default function SettingsPage() {
               backgroundColor: 'white',
               borderRadius: '16px',
               padding: '2rem',
-              marginBottom: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              marginBottom: '2rem'
             }}>
               <h2 style={{
                 fontSize: '1.5rem',
@@ -570,7 +432,6 @@ export default function SettingsPage() {
                 backgroundColor: 'white',
                 borderRadius: '12px',
                 padding: '1.5rem',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -608,7 +469,6 @@ export default function SettingsPage() {
                 backgroundColor: 'white',
                 borderRadius: '12px',
                 padding: '1.5rem',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',

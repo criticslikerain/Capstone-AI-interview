@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '../../../../lib/db';
+import { getPasswordResetToken, updateUser, markTokenAsUsed } from '../../../../lib/firebase.js';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request) {
@@ -18,31 +18,23 @@ export async function POST(request) {
     // tig find valid reset token 
     // Para ma-verify kung tinuod ang reset request
     //=================================================
-    const tokens = await query(
-      'SELECT * FROM password_reset_tokens WHERE token = ? AND expires_at > NOW() AND is_used = FALSE',
-      [token]
-    );
+    const resetToken = await getPasswordResetToken(token);
 
-    if (tokens.length === 0) {
+    if (!resetToken) {
       return NextResponse.json({ error: 'Invalid or expired reset token' }, { status: 400 });
     }
-    const resetToken = tokens[0];
     const hashedPassword = await bcrypt.hash(password, 12);
         //=================================================
     // i-update ang password sa user
     // Para magamit na niya ang bag-o nga password
     //=================================================
-    await db.query(
-      'UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?',
-      [hashedPassword, resetToken.user_id]
-    );
+    await updateUser(resetToken.user_id, {
+      password_hash: hashedPassword
+    });
     //=================================================
     // i-mark ang token as used kay gi gamit rata :')
     //=================================================
-    await db.query(
-      'UPDATE password_reset_tokens SET is_used = TRUE WHERE id = ?',
-      [resetToken.id]
-    );
+    await markTokenAsUsed(resetToken.id);
     return NextResponse.json({ message: 'Password reset successfully' });
 
   } catch (error) {

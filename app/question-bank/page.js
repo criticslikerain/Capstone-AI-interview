@@ -2,60 +2,16 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
-  Home, 
-  Clock, 
-  Zap, 
-  HelpCircle, 
-  CreditCard, 
-  User, 
-  Settings,
+  HelpCircle,
   Search,
   Filter,
   ChevronRight
 } from 'lucide-react'
-import ChatBubbleLogo from '../../components/ChatBubbleLogo'
+import Sidebar from '../../components/Sidebar'
 
 export default function QuestionBank() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-
-  const handleNavigation = (itemId) => {
-    switch(itemId) {
-      case 'dashboard':
-        router.push('/user-dashboard')
-        break
-      case 'live-interview':
-        router.push('/live-ai-interview')
-        break
-      case 'past-interviews':
-        router.push('/weakness-overview')
-        break
-      case 'question-bank':
-        router.push('/question-bank')
-        break
-      case 'subscriptions':
-        router.push('/my-plan')
-        break
-      case 'profile':
-        router.push('/profile')
-        break
-      case 'settings':
-        router.push('/settings')
-        break
-      default:
-        break
-    }
-  }
-
-  const sidebarItems = [
-    { id: 'dashboard', icon: Home, label: 'Dashboard' },
-    { id: 'past-interviews', icon: Clock, label: 'Past Interviews' },
-    { id: 'live-interview', icon: Zap, label: 'Live AI Interview' },
-    { id: 'question-bank', icon: HelpCircle, label: 'Question Bank' },
-    { id: 'subscriptions', icon: CreditCard, label: 'Subscriptions' },
-    { id: 'profile', icon: User, label: 'Profile' },
-    { id: 'settings', icon: Settings, label: 'Settings' }
-  ]
 
   const questionCategories = [
     {
@@ -105,99 +61,7 @@ export default function QuestionBank() {
       overflow: 'hidden'
     }}>
       {/* Sidebar */}
-      <div style={{
-        width: '280px',
-        backgroundColor: '#1f2937',
-        backgroundImage: 'url("https://images.pexels.com/photos/12902862/pexels-photo-12902862.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        color: 'white',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        height: '100vh',
-        zIndex: 10
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(31, 41, 55, 0.9)',
-          zIndex: 1
-        }}></div>
-        
-        <div style={{
-          position: 'relative',
-          zIndex: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%'
-        }}>
-          <div style={{
-            padding: '2rem 1.5rem',
-            borderBottom: '1px solid rgba(55, 65, 81, 0.5)'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem'
-            }}>
-              <ChatBubbleLogo size={48} />
-              <h2 style={{
-                fontSize: '1.25rem',
-                fontWeight: 'bold',
-                margin: 0,
-                color: 'white'
-              }}>
-                InterviewPro
-              </h2>
-            </div>
-          </div>
-
-          <nav style={{ flex: 1, padding: '1rem 0' }}>
-            {sidebarItems.map((item) => {
-              const Icon = item.icon
-              const isActive = item.id === 'question-bank'
-              
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavigation(item.id)}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.75rem 1.5rem',
-                    backgroundColor: isActive ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
-                    color: 'white',
-                    border: 'none',
-                    borderLeft: isActive ? '4px solid #06b6d4' : '4px solid transparent',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    textAlign: 'left',
-                    transition: 'all 0.2s',
-                    position: 'relative'
-                  }}
-                  onMouseOver={(e) => {
-                    if (!isActive) e.target.style.backgroundColor = 'rgba(55, 65, 81, 0.7)'
-                  }}
-                  onMouseOut={(e) => {
-                    if (!isActive) e.target.style.backgroundColor = 'transparent'
-                  }}
-                >
-                  <Icon size={20} />
-                  {item.label}
-                </button>
-              )
-            })}
-          </nav>
-        </div>
-      </div>
+      <Sidebar activeItem="question-bank" />
 
       {/* Main Content */}
       <div style={{

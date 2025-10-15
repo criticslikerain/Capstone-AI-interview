@@ -21,7 +21,7 @@ const MyPlan = ({ onLogout }) => {
         router.push('/user-dashboard');
         break;
       case 'live-interview':
-        router.push('/live-ai-interview');
+        router.push('/live-ai-interview-content-page');
         break;
       case 'past-interviews':
         router.push('/weakness-overview');

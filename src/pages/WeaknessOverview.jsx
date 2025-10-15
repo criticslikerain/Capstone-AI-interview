@@ -65,19 +65,35 @@ const WeaknessOverview = ({ onLogout }) => {
     {
       id: 'behavioral',
       title: 'Behavioral Questions',
-      icon: '👥',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="8" r="4" fill="white"/>
+          <path d="M5 20C5 16.134 8.13401 13 12 13C15.866 13 19 16.134 19 20" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      ),
       color: '#ef4444'
     },
     {
       id: 'problem-solving',
       title: 'Problem-Solving Questions',
-      icon: '🧩',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="2" stroke="white" strokeWidth="2"/>
+          <circle cx="12" cy="12" r="2" fill="white"/>
+          <path d="M12 2V7M12 17V22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M2 12H7M17 12H22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      ),
       color: '#f59e0b'
     },
     {
       id: 'situational',
       title: 'Situational Questions',
-      icon: '🎯',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      ),
       color: '#8b5cf6'
     }
   ];
@@ -294,12 +310,14 @@ const WeaknessOverview = ({ onLogout }) => {
                 flexShrink: 0
               }}>
                 <img 
-                  src="https://static.vecteezy.com/system/resources/previews/012/582/555/non_2x/professional-burnout-syndrome-illustration-tired-office-worker-sitting-at-the-table-frustrated-worker-mental-health-problems-png.png"
+                  src="/assets/images/job_interview.png"
                   alt="Tired office worker"
                   style={{
                     width: '160px',
                     height: '160px',
-                    objectFit: 'contain'
+                    objectFit: 'contain',
+                    transform: 'scale(1.5)',
+                    transformOrigin: 'center'
                   }}
                 />
               </div>
@@ -349,8 +367,7 @@ const WeaknessOverview = ({ onLogout }) => {
               backgroundColor: 'white',
               borderRadius: '16px',
               padding: '2rem',
-              marginBottom: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              marginBottom: '2rem'
             }}>
               <div style={{
                 display: 'flex',
@@ -519,8 +536,7 @@ const WeaknessOverview = ({ onLogout }) => {
               backgroundColor: 'white',
               borderRadius: '16px',
               padding: '2rem',
-              marginBottom: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              marginBottom: '2rem'
             }}>
               <div style={{
                 display: 'flex',
@@ -603,8 +619,7 @@ const WeaknessOverview = ({ onLogout }) => {
             <div style={{
               backgroundColor: 'white',
               borderRadius: '16px',
-              padding: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              padding: '2rem'
             }}>
               <div style={{
                 display: 'flex',

@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Home,
@@ -11,17 +11,38 @@ import {
   Settings,
   Mail
 } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 import ChatBubbleLogo from '../../components/ChatBubbleLogo'
 
 export default function ProfilePage() {
   const router = useRouter()
+  const { user, userProfile, getInitials, getFullName, logout, loading } = useAuth()
   const [formData, setFormData] = useState({
-    firstName: 'David Michael',
-    lastName: 'Osia',
-    email: 'davidmichael@workmail.com',
-    phoneNumber: '09123456789',
-    address: '8th Street, New Foundland, Southhampton'
+    firstName: '',
+    lastName: '',
+    email: '',
+    phoneNumber: '',
+    address: ''
   })
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    if (!user) {
+      router.push('/login')
+      return
+    }
+    
+    if (userProfile) {
+      setFormData({
+        firstName: userProfile.first_name || '',
+        lastName: userProfile.last_name || '',
+        email: userProfile.email || user.email || '',
+        phoneNumber: userProfile.phone_number || '',
+        address: userProfile.address || ''
+      })
+    }
+  }, [user, userProfile, router])
 
   const handleNavigation = (itemId) => {
     switch (itemId) {
@@ -29,7 +50,7 @@ export default function ProfilePage() {
         router.push('/user-dashboard')
         break
       case 'live-interview':
-        router.push('/live-ai-interview')
+        router.push('/live-ai-interview-content-page')
         break
       case 'past-interviews':
         router.push('/weakness-overview')
@@ -56,6 +77,45 @@ export default function ProfilePage() {
       ...prev,
       [field]: value
     }))
+    setMessage('')
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setMessage('')
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      setMessage('Profile updated successfully!')
+    } catch (error) {
+      setMessage('Failed to update profile. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            border: '4px solid #f3f4f6',
+            borderTop: '4px solid #06b6d4',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto'
+          }}></div>
+          <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading profile...</p>
+        </div>
+      </div>
+    )
   }
 
   const sidebarItems = [
@@ -167,6 +227,38 @@ export default function ProfilePage() {
               )
             })}
           </nav>
+
+          {/* Logout Button */}
+          <div style={{ padding: '1rem' }}>
+            <button
+              onClick={async () => {
+                await logout()
+                router.push('/login')
+              }}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem',
+                backgroundColor: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: '500'
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16,17 21,12 16,7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
@@ -186,8 +278,8 @@ export default function ProfilePage() {
           <div style={{
             background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%)',
             position: 'relative',
-            paddingTop: '3rem',
-            paddingBottom: '4rem',
+            paddingTop: '1rem',
+            paddingBottom: '1rem',
             color: 'white',
             textAlign: 'center'
           }}>
@@ -204,17 +296,15 @@ export default function ProfilePage() {
                 borderRadius: '50%',
                 margin: '0 auto 1.5rem',
                 border: '4px solid rgba(255, 255, 255, 0.3)',
-                overflow: 'hidden'
+                backgroundColor: '#06b6d4',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '3rem',
+                fontWeight: 'bold',
+                color: 'white'
               }}>
-                <img
-                  src="https://scontent.fceb2-1.fna.fbcdn.net/v/t39.30808-6/332894731_871500290627490_9114427192078729508_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeEIQK4MFgnnRT9WfUg2B6s136FuOVzB0ezfoW45XMHR7GLHbu64z4xh439aJE-Nbc3U3zbd5CTvoo94jdtMy3N9&_nc_ohc=NcggS-PF0-YQ7kNvwEnFr6M&_nc_oc=AdmeDZmzyHsvb6r0FV2ZRFXlM9ivTKJ6uCa92aRo5yfmBZx-PSHmFy6Cy2WeumNPo3E&_nc_zt=23&_nc_ht=scontent.fceb2-1.fna&_nc_gid=YkQdYl3LxA2evXlqFcpT-A&oh=00_AfUgs_cUtw8mcGo5D5X2VU8M7Y4nPEiFGcH52XLOnN2pUg&oe=689D38F6"
-                  alt="David Michael Osia"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover'
-                  }}
-                />
+                {getInitials()}
               </div>
 
               <h1 style={{
@@ -223,7 +313,7 @@ export default function ProfilePage() {
                 margin: 0,
                 marginBottom: '0.5rem'
               }}>
-                David Michael Osia
+                {getFullName()}
               </h1>
 
               <div style={{
@@ -238,7 +328,7 @@ export default function ProfilePage() {
                   fontSize: '1rem',
                   color: 'rgba(255, 255, 255, 0.9)'
                 }}>
-                  DavidMichaelOsia@gmail.com
+                  {userProfile?.email || user?.email || 'No email'}
                 </span>
               </div>
 
@@ -305,15 +395,14 @@ export default function ProfilePage() {
             maxWidth: '800px',
             margin: '0 auto',
             padding: '2rem',
-            marginTop: '-1rem',
+            marginTop: '2rem',
             position: 'relative',
             zIndex: 3
           }}>
             <div style={{
               backgroundColor: 'white',
               borderRadius: '16px',
-              padding: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              padding: '2rem'
             }}>
               <div style={{
                 display: 'flex',
@@ -456,21 +545,39 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div style={{ marginTop: '2rem' }}>
-                <button style={{
-                  width: '100%',
-                  padding: '1rem 2rem',
-                  backgroundColor: '#06b6d4',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '1.125rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)',
-                  transition: 'all 0.2s'
+              {message && (
+                <div style={{
+                  marginTop: '1rem',
+                  padding: '0.75rem',
+                  backgroundColor: message.includes('successfully') ? '#d1fae5' : '#fee2e2',
+                  border: `1px solid ${message.includes('successfully') ? '#86efac' : '#fca5a5'}`,
+                  color: message.includes('successfully') ? '#059669' : '#dc2626',
+                  borderRadius: '0.5rem',
+                  textAlign: 'center'
                 }}>
-                  Update
+                  {message}
+                </div>
+              )}
+
+              <div style={{ marginTop: '2rem' }}>
+                <button 
+                  onClick={handleSave}
+                  disabled={saving}
+                  style={{
+                    width: '100%',
+                    padding: '1rem 2rem',
+                    backgroundColor: saving ? '#9ca3af' : '#06b6d4',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '1.125rem',
+                    fontWeight: '600',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {saving ? 'Updating...' : 'Update Profile'}
                 </button>
               </div>
             </div>

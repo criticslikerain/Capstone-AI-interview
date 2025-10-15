@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '../../../../lib/db';
+import { getUserByEmail, createPasswordResetToken } from '../../../../lib/firebase.js';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 
@@ -11,27 +11,22 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    // Check if user exists
-    const users = await query('SELECT id, email, first_name FROM users WHERE email = ?', [email]);
+    const user = await getUserByEmail(email);
     
-    if (users.length === 0) {
-      // Don't reveal if email exists or not for security
+    if (!user) {
       return NextResponse.json({ message: 'If an account with that email exists, we have sent a password reset link.' });
     }
 
-    const user = users[0];
-
-    // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
+    const expiresAt = new Date(Date.now() + 3600000);
 
-    // Store reset token in database
-    await query(
-      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, ?)',
-      [user.id, resetToken, expiresAt]
-    );
+    await createPasswordResetToken({
+      user_id: user.id,
+      token: resetToken,
+      expires_at: expiresAt,
+      is_used: false
+    });
 
-    // Create email transporter
     const transporter = nodemailer.createTransporter({
       service: 'gmail',
       auth: {

@@ -1,82 +1,54 @@
 'use client'
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  Home, 
-  Clock, 
-  Zap, 
-  HelpCircle, 
-  CreditCard, 
-  User, 
-  Settings,
+import {
   AlertTriangle,
   BarChart3,
   ChevronRight,
   Lightbulb,
   Target,
-  Calendar
+  Calendar,
+  HelpCircle
 } from 'lucide-react'
-import ChatBubbleLogo from '../../components/ChatBubbleLogo'
+import Sidebar from '../../components/Sidebar'
 
 export default function WeaknessOverview() {
   const router = useRouter()
   const [selectedCategory, setSelectedCategory] = useState('Problem-solving')
 
-  const handleNavigation = (itemId) => {
-    switch(itemId) {
-      case 'dashboard':
-        router.push('/user-dashboard')
-        break
-      case 'live-interview':
-        router.push('/live-ai-interview')
-        break
-      case 'past-interviews':
-        router.push('/weakness-overview')
-        break
-      case 'question-bank':
-        router.push('/question-bank')
-        break
-      case 'subscriptions':
-        router.push('/my-plan')
-        break
-      case 'profile':
-        router.push('/profile')
-        break
-      case 'settings':
-        router.push('/settings')
-        break
-      default:
-        break
-    }
-  }
-
-  const sidebarItems = [
-    { id: 'dashboard', icon: Home, label: 'Dashboard' },
-    { id: 'past-interviews', icon: Clock, label: 'Past Interviews' },
-    { id: 'live-interview', icon: Zap, label: 'Live AI Interview' },
-    { id: 'question-bank', icon: HelpCircle, label: 'Question Bank' },
-    { id: 'subscriptions', icon: CreditCard, label: 'Subscriptions' },
-    { id: 'profile', icon: User, label: 'Profile' },
-    { id: 'settings', icon: Settings, label: 'Settings' }
-  ]
-
   const questionCategories = [
     {
       id: 'behavioral',
       title: 'Behavioral Questions',
-      icon: '👥',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="8" r="4" fill="white"/>
+          <path d="M5 20C5 16.134 8.13401 13 12 13C15.866 13 19 16.134 19 20" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      ),
       color: '#ef4444'
     },
     {
       id: 'problem-solving',
       title: 'Problem-Solving Questions',
-      icon: '🧩',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" rx="2" stroke="white" strokeWidth="2"/>
+          <circle cx="12" cy="12" r="2" fill="white"/>
+          <path d="M12 2V7M12 17V22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M2 12H7M17 12H22" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
+      ),
       color: '#f59e0b'
     },
     {
       id: 'situational',
       title: 'Situational Questions',
-      icon: '🎯',
+      icon: (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      ),
       color: '#8b5cf6'
     }
   ]
@@ -95,99 +67,7 @@ export default function WeaknessOverview() {
       overflow: 'hidden'
     }}>
       {/* Sidebar */}
-      <div style={{
-        width: '280px',
-        backgroundColor: '#1f2937',
-        backgroundImage: 'url("https://images.pexels.com/photos/12902862/pexels-photo-12902862.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        color: 'white',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        height: '100vh',
-        zIndex: 10
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(31, 41, 55, 0.9)',
-          zIndex: 1
-        }}></div>
-        
-        <div style={{
-          position: 'relative',
-          zIndex: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%'
-        }}>
-          <div style={{
-            padding: '2rem 1.5rem',
-            borderBottom: '1px solid rgba(55, 65, 81, 0.5)'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem'
-            }}>
-              <ChatBubbleLogo size={48} />
-              <h2 style={{
-                fontSize: '1.25rem',
-                fontWeight: 'bold',
-                margin: 0,
-                color: 'white'
-              }}>
-                InterviewPro
-              </h2>
-            </div>
-          </div>
-
-          <nav style={{ flex: 1, padding: '1rem 0' }}>
-            {sidebarItems.map((item) => {
-              const Icon = item.icon
-              const isActive = item.id === 'past-interviews'
-              
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavigation(item.id)}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.75rem 1.5rem',
-                    backgroundColor: isActive ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
-                    color: 'white',
-                    border: 'none',
-                    borderLeft: isActive ? '4px solid #06b6d4' : '4px solid transparent',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    textAlign: 'left',
-                    transition: 'all 0.2s',
-                    position: 'relative'
-                  }}
-                  onMouseOver={(e) => {
-                    if (!isActive) e.target.style.backgroundColor = 'rgba(55, 65, 81, 0.7)'
-                  }}
-                  onMouseOut={(e) => {
-                    if (!isActive) e.target.style.backgroundColor = 'transparent'
-                  }}
-                >
-                  <Icon size={20} />
-                  {item.label}
-                </button>
-              )
-            })}
-          </nav>
-        </div>
-      </div>
+      <Sidebar activeItem="weakness-overview" />
 
       {/* Main Content */}
       <div style={{
@@ -206,34 +86,11 @@ export default function WeaknessOverview() {
             background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%)',
             position: 'relative',
             paddingTop: '3rem',
-            paddingBottom: '6rem',
+            paddingBottom: '3rem',
             color: 'white',
             textAlign: 'center'
           }}>
-            <div style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: '60px',
-              overflow: 'hidden'
-            }}>
-              <svg
-                viewBox="0 0 1200 120"
-                preserveAspectRatio="none"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  transform: 'rotate(180deg)'
-                }}
-              >
-                <path
-                  d="M0,0 C150,100 350,100 600,50 C850,0 1050,0 1200,50 L1200,120 L0,120 Z"
-                  fill="#f9fafb"
-                />
-              </svg>
-            </div>
-            
+
             <div style={{
               position: 'relative',
               zIndex: 2,
@@ -247,17 +104,19 @@ export default function WeaknessOverview() {
               <div style={{
                 flexShrink: 0
               }}>
-                <img 
-                  src="https://static.vecteezy.com/system/resources/previews/012/582/555/non_2x/professional-burnout-syndrome-illustration-tired-office-worker-sitting-at-the-table-frustrated-worker-mental-health-problems-png.png"
-                  alt="Tired office worker"
+                <img
+                  src="/assets/images/weakness_overview.png"
+                  alt="Job interview"
                   style={{
                     width: '160px',
                     height: '160px',
-                    objectFit: 'contain'
+                    objectFit: 'contain',
+                    transform: 'scale(1.5)',
+                    transformOrigin: 'center'
                   }}
                 />
               </div>
-              
+
               <div style={{ textAlign: 'left' }}>
                 <h1 style={{
                   fontSize: '2.5rem',
@@ -267,7 +126,7 @@ export default function WeaknessOverview() {
                 }}>
                   Weakness Overview
                 </h1>
-                
+
                 <p style={{
                   fontSize: '1.125rem',
                   color: 'rgba(255, 255, 255, 0.9)',
@@ -285,17 +144,14 @@ export default function WeaknessOverview() {
             maxWidth: '1200px',
             margin: '0 auto',
             padding: '2rem',
-            marginTop: '-3rem',
-            position: 'relative',
-            zIndex: 3
+            position: 'relative'
           }}>
             {/* Key Weaknesses Section */}
             <div style={{
               backgroundColor: 'white',
               borderRadius: '16px',
               padding: '2rem',
-              marginBottom: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              marginBottom: '2rem'
             }}>
               <div style={{
                 display: 'flex',
@@ -313,7 +169,7 @@ export default function WeaknessOverview() {
                   Key Weaknesses
                 </h2>
               </div>
-              
+
               <p style={{
                 color: '#6b7280',
                 marginBottom: '2rem',
@@ -347,7 +203,7 @@ export default function WeaknessOverview() {
                   }}>
                     <span style={{ color: 'white', fontSize: '1.5rem', fontWeight: 'bold' }}>?</span>
                   </div>
-                  
+
                   <h3 style={{
                     fontSize: '1.125rem',
                     fontWeight: '600',
@@ -357,7 +213,7 @@ export default function WeaknessOverview() {
                   }}>
                     Lack of Clarity in Responses
                   </h3>
-                  
+
                   <p style={{
                     color: '#6b7280',
                     fontSize: '0.875rem',
@@ -390,7 +246,7 @@ export default function WeaknessOverview() {
                       Questions Where This Weakness Was Highlighted
                     </h3>
                   </div>
-                  
+
                   <div style={{ fontSize: '0.875rem', color: '#374151' }}>
                     <p style={{ margin: '0 0 0.5rem 0' }}>• Tell me about a time you had to handle multiple priorities at once.</p>
                     <p style={{ margin: '0' }}>• How would you handle a disagreement with a team member?</p>
@@ -421,7 +277,7 @@ export default function WeaknessOverview() {
                     Main Question Categories Contributing to this Weakness
                   </h4>
                 </div>
-                
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -432,7 +288,7 @@ export default function WeaknessOverview() {
                       <div style={{ width: '60%', height: '100%', backgroundColor: '#3b82f6', borderRadius: '4px' }}></div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                       <span style={{ fontSize: '0.875rem', color: '#374151' }}>Problem-Solving</span>
@@ -442,7 +298,7 @@ export default function WeaknessOverview() {
                       <div style={{ width: '30%', height: '100%', backgroundColor: '#f59e0b', borderRadius: '4px' }}></div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                       <span style={{ fontSize: '0.875rem', color: '#374151' }}>Situational</span>
@@ -461,8 +317,7 @@ export default function WeaknessOverview() {
               backgroundColor: 'white',
               borderRadius: '16px',
               padding: '2rem',
-              marginBottom: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              marginBottom: '2rem'
             }}>
               <div style={{
                 display: 'flex',
@@ -480,7 +335,7 @@ export default function WeaknessOverview() {
                   Weakness by Question Category
                 </h2>
               </div>
-              
+
               <p style={{
                 color: '#6b7280',
                 marginBottom: '2rem',
@@ -544,8 +399,7 @@ export default function WeaknessOverview() {
             <div style={{
               backgroundColor: 'white',
               borderRadius: '16px',
-              padding: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              padding: '2rem'
             }}>
               <div style={{
                 display: 'flex',
@@ -563,7 +417,7 @@ export default function WeaknessOverview() {
                   Personalized Improvement Plan
                 </h2>
               </div>
-              
+
               <p style={{
                 color: '#6b7280',
                 marginBottom: '2rem',
@@ -580,7 +434,7 @@ export default function WeaknessOverview() {
                 }}>
                   Select question category
                 </p>
-                
+
                 <div style={{
                   display: 'flex',
                   gap: '0.5rem'
@@ -621,7 +475,7 @@ export default function WeaknessOverview() {
                 }}>
                   Describe a time when you faced an unexpected obstacle in a project. How did you resolve it?
                 </p>
-                
+
                 <button style={{
                   padding: '0.5rem 1rem',
                   backgroundColor: '#06b6d4',

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import mysql from 'mysql2/promise'
+import { createInterview } from '../../../../lib/firebase.js'
 
 export async function POST(request) {
   try {
@@ -108,28 +108,11 @@ function generateFallbackAnalysis(conversation) {
 }
 async function saveInterviewToDatabase(conversation, analysis) {
   try {
-    const connection = await mysql.createConnection({
-      host: process.env.DB_HOST,
-      port: process.env.DB_PORT,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME
+    await createInterview({
+      conversation,
+      analysis,
+      overall_score: analysis.overallScore
     })
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS interviews (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        conversation JSON,
-        analysis JSON,
-        overall_score INT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-    await connection.execute(
-      'INSERT INTO interviews (conversation, analysis, overall_score) VALUES (?, ?, ?)',
-      [JSON.stringify(conversation), JSON.stringify(analysis), analysis.overallScore]
-    )
-
-    await connection.end()
   } catch (error) {
     console.error('Database save error:', error)
   }
