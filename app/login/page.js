@@ -1,8 +1,10 @@
 'use client'
-import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Mail, Lock } from 'lucide-react'
-import ChatBubbleLogo from '../../components/ChatBubbleLogo'
+import { signInWithEmailAndPassword } from 'firebase/auth'
+import { auth } from '../../lib/firebase'
+import ChatBubbleLogo from '../components/ChatBubbleLogo'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -10,47 +12,80 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [isLargeScreen, setIsLargeScreen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    setMounted(true)
+    const checkScreenSize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024)
+    }
+    
+    checkScreenSize()
+    window.addEventListener('resize', checkScreenSize)
+    
+    return () => window.removeEventListener('resize', checkScreenSize)
+  }, [])
+
+  useEffect(() => {
+    const message = searchParams.get('message')
+    if (message) {
+      setSuccessMessage(message)
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSuccessMessage('')
+
+    if (!email.trim()) {
+      setError('Email is required')
+      setLoading(false)
+      return
+    }
+
+    if (!password) {
+      setError('Password is required')
+      setLoading(false)
+      return
+    }
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        router.push(data.redirectTo || '/user-dashboard')
-      } else {
-        setError(data.error || 'Login failed')
-      }
+      await signInWithEmailAndPassword(auth, email, password)
+      router.push('/user-dashboard')
     } catch (error) {
-      setError('Network error. Please try again.')
+      let errorMessage = 'Login failed'
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email'
+      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = 'Incorrect email or password'
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address'
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later'
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
   }
 
   const handleGoogleSignIn = () => {
-    if (typeof window !== 'undefined' && window.google) {
+    if (mounted && window.google) {
       window.google.accounts.id.prompt()
     } else {
       setError('Google Sign-In not available. Please try again.')
     }
   }
 
-  // Initialize Google Sign-In
   React.useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (mounted) {
       const script = document.createElement('script')
       script.src = 'https://accounts.google.com/gsi/client'
       script.async = true
@@ -67,10 +102,12 @@ export default function Login() {
       }
 
       return () => {
-        document.head.removeChild(script)
+        if (document.head.contains(script)) {
+          document.head.removeChild(script)
+        }
       }
     }
-  }, [])
+  }, [mounted])
 
   const handleGoogleCallback = async (response) => {
     try {
@@ -118,7 +155,7 @@ export default function Login() {
         height: '100vh',
         position: 'relative',
         overflow: 'hidden',
-        display: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'block' : 'none',
+        display: mounted && isLargeScreen ? 'block' : 'none',
         margin: 0,
         padding: 0
       }}>
@@ -143,7 +180,7 @@ export default function Login() {
 
       {/* Right side - Login Form */}
       <div style={{
-        width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? '50%' : '100%',
+        width: mounted && isLargeScreen ? '50%' : '100%',
         height: '100vh',
         display: 'flex',
         alignItems: 'center',
@@ -188,6 +225,19 @@ export default function Login() {
               coach and start improving today!
             </p>
           </div>
+
+          {successMessage && (
+            <div style={{
+              marginBottom: '1rem',
+              padding: '0.75rem',
+              backgroundColor: '#d1fae5',
+              border: '1px solid #86efac',
+              color: '#059669',
+              borderRadius: '0.5rem'
+            }}>
+              {successMessage}
+            </div>
+          )}
 
           {error && (
             <div style={{

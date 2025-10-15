@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { query } from '../../../../lib/db.js'
+import { getUserByEmail, updateUser } from '../../../../lib/firebase.js'
 
 //****************************************************************************
 // LOGIN ENDPOINT - DIRI MO AJI TANAN LOGIN REQUESTS
@@ -23,19 +23,14 @@ export async function POST(request) {
         { status: 400 }
       )
     }
-    const users = await query(
-      'SELECT id, email, password_hash, first_name, last_name, user_type, is_active FROM users WHERE email = ?',
-      [email]
-    )
+    const user = await getUserByEmail(email)
 
-    if (users.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       )
     }
-
-    const user = users[0]
 
     if (!user.is_active) {
       return NextResponse.json(
@@ -62,10 +57,7 @@ export async function POST(request) {
     // UPDATE LAST LOGIN TIME
     // Para mahibaw-an nato kanus-a last time ni login
     //*******************************************************************
-    await query(
-      'UPDATE users SET last_login = NOW() WHERE id = ?',
-      [user.id]
-    )
+    await updateUser(user.id, { last_login: new Date() })
 
     // jwt gen. 
     const token = jwt.sign(

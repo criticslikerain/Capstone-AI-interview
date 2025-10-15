@@ -2,6 +2,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { User, Mail, Lock, ArrowLeft } from 'lucide-react'
+
 import ChatBubbleLogo from '../../components/ChatBubbleLogo'
 
 export default function SignUp() {
@@ -27,38 +28,61 @@ export default function SignUp() {
     setLoading(true)
     setError('')
 
+    // Validation
+    if (!formData.fullName.trim()) {
+      setError('Full name is required')
+      setLoading(false)
+      return
+    }
+
+    if (!formData.email.trim()) {
+      setError('Email is required')
+      setLoading(false)
+      return
+    }
+
+    if (!formData.password) {
+      setError('Password is required')
+      setLoading(false)
+      return
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password should be at least 6 characters')
+      setLoading(false)
+      return
+    }
+
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match!')
+      setError('Passwords do not match')
       setLoading(false)
       return
     }
 
     try {
-      const [firstName, ...lastNameParts] = formData.fullName.split(' ')
-      const lastName = lastNameParts.join(' ') || firstName
-
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/auth/send-verification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          email: formData.email,
-          password: formData.password
-        }),
+        body: JSON.stringify({ email: formData.email }),
       })
 
       const data = await response.json()
 
-      if (response.ok) {
-        router.push('/login?message=Registration successful')
+      if (data.success) {
+        const params = new URLSearchParams({
+          email: formData.email,
+          fullName: formData.fullName,
+          password: formData.password,
+          code: data.verificationCode
+        })
+        router.push(`/email-verification?${params.toString()}`)
       } else {
-        setError(data.error || 'Registration failed')
+        setError(data.error || 'Failed to send verification email')
       }
     } catch (error) {
-      setError('Network error. Please try again.')
+      setError('Failed to send verification email. Please try again.')
     } finally {
       setLoading(false)
     }

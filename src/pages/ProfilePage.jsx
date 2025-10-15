@@ -189,8 +189,8 @@ const ProfilePage = ({ onLogout }) => {
           <div style={{
             background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%)',
             position: 'relative',
-            paddingTop: '3rem',
-            paddingBottom: '4rem',
+            paddingTop: '1rem',
+            paddingBottom: '1rem',
             color: 'white',
             textAlign: 'center'
           }}>
@@ -312,15 +312,14 @@ const ProfilePage = ({ onLogout }) => {
             maxWidth: '800px',
             margin: '0 auto',
             padding: '2rem',
-            marginTop: '-1rem',
+            marginTop: '2rem',
             position: 'relative',
             zIndex: 3
           }}>
             <div style={{
               backgroundColor: 'white',
               borderRadius: '16px',
-              padding: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              padding: '2rem'
             }}>
               {/* Form Fields */}
               <div style={{

@@ -10,7 +10,7 @@
 
 
 import { NextResponse } from 'next/server'
-import { query } from '../../../../lib/db.js'
+import { getQuestionCategories } from '../../../../lib/firebase.js'
 export async function GET() {
   try {
     //*******************************************************************
@@ -18,12 +18,7 @@ export async function GET() {
     // Importante ang sort_order para organized ang display
     // Inactive categories dili na ipakita
     //*******************************************************************
-    const categories = await query(
-      `SELECT id, name, description, icon, color, sort_order
-       FROM question_categories 
-       WHERE is_active = true 
-       ORDER BY sort_order ASC`
-    )
+    const categories = await getQuestionCategories()
 
     return NextResponse.json({ categories })
 

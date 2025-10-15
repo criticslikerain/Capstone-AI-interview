@@ -212,8 +212,8 @@ const SettingsPage = ({ onLogout }) => {
           <div style={{
             background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%)',
             position: 'relative',
-            paddingTop: '3rem',
-            paddingBottom: '6rem',
+            paddingTop: '2rem',
+            paddingBottom: '3rem',
             color: 'white',
             textAlign: 'center'
           }}>
@@ -273,7 +273,7 @@ const SettingsPage = ({ onLogout }) => {
             maxWidth: '1000px',
             margin: '0 auto',
             padding: '2rem',
-            marginTop: '-3rem',
+            marginTop: '2rem',
             position: 'relative',
             zIndex: 3
           }}>
@@ -282,8 +282,7 @@ const SettingsPage = ({ onLogout }) => {
               backgroundColor: 'white',
               borderRadius: '16px',
               padding: '2rem',
-              marginBottom: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              marginBottom: '2rem'
             }}>
               <h2 style={{
                 fontSize: '1.5rem',
@@ -320,8 +319,7 @@ const SettingsPage = ({ onLogout }) => {
               backgroundColor: 'white',
               borderRadius: '16px',
               padding: '2rem',
-              marginBottom: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              marginBottom: '2rem'
             }}>
               <h2 style={{
                 fontSize: '1.5rem',
@@ -578,7 +576,6 @@ const SettingsPage = ({ onLogout }) => {
                 backgroundColor: 'white',
                 borderRadius: '12px',
                 padding: '1.5rem',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -616,7 +613,6 @@ const SettingsPage = ({ onLogout }) => {
                 backgroundColor: 'white',
                 borderRadius: '12px',
                 padding: '1.5rem',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',

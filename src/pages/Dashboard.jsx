@@ -105,7 +105,6 @@ const Dashboard = ({ onLogout }) => {
         backgroundColor: 'white',
         borderRadius: '12px',
         padding: '2rem',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
         marginTop: '-100px',
         position: 'relative',
         zIndex: 10

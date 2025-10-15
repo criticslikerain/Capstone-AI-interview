@@ -22,13 +22,11 @@ export default function VoiceInterview() {
 
 
   useEffect(() => {
-    // Load interview configuration
     const config = sessionStorage.getItem('interviewConfig')
     if (config) {
       setInterviewConfig(JSON.parse(config))
     }
 
-    // Initialize speech recognition
     if ('webkitSpeechRecognition' in window) {
       recognitionRef.current = new window.webkitSpeechRecognition()
       recognitionRef.current.continuous = true
@@ -65,7 +63,6 @@ export default function VoiceInterview() {
       }
     }
 
-    // Initialize interview messages
     if (!hasStartedRef.current) {
       hasStartedRef.current = true
       const systemPrompt = `You are a PROFESSIONAL JOB INTERVIEWER conducting an interview. CRITICAL RULES:
@@ -104,7 +101,6 @@ Example responses:
     setConversation(initialConversation)
     setMessages(prev => [...prev, { role: "assistant", content: greeting }])
     
-    // Save to localStorage
     localStorage.setItem('interview_conversation', JSON.stringify(initialConversation))
     
     speakText(greeting)
@@ -140,7 +136,6 @@ Example responses:
         currentAudioRef.current = null
         
         if (isFinalQuestion) {
-          // Wait additional 10 seconds after final question before routing
           console.log('Final question audio finished, waiting 10 more seconds before routing...')
           setTimeout(() => {
             console.log('Routing to interview results...')
@@ -161,7 +156,6 @@ Example responses:
         currentAudioRef.current = null
         
         if (isFinalQuestion) {
-          // Even if audio fails, still wait before routing
           console.log('Audio error on final question, waiting 10 seconds before routing...')
           setTimeout(() => {
             router.push('/interview-results')
@@ -176,7 +170,6 @@ Example responses:
       currentAudioRef.current = null
       
       if (isFinalQuestion) {
-        // Even if TTS fails completely, still wait before routing
         console.log('TTS failed on final question, waiting 10 seconds before routing...')
         setTimeout(() => {
           router.push('/interview-results')
@@ -204,14 +197,11 @@ Example responses:
       const newConversation = [...conversation, { type: 'user', text: transcript }]
       setConversation(newConversation)
       
-      // Build the updated messages array including the new user message
       const updatedMessages = [...messages, { role: "user", content: transcript }]
       setMessages(updatedMessages)
       
-      // Save to localStorage
       localStorage.setItem('interview_conversation', JSON.stringify(newConversation))
       
-      // Pass the updated messages directly to avoid state timing issues
       setTimeout(() => {
         generateAIResponse(transcript, updatedMessages)
       }, 500)
@@ -227,7 +217,6 @@ Example responses:
       console.log('Current question:', currentQuestion)
       console.log('Sending messages:', currentMessages)
       
-      // Check if this is the final question (6th) - request closing statement
       const isRequestingClosing = currentQuestion >= 6
       
       const requestBody = { 
@@ -259,33 +248,25 @@ Example responses:
       const aiResponse = data.response
       console.log('AI will say:', aiResponse)
       
-      // Update states
       setMessages(prev => [...prev, { role: "assistant", content: aiResponse }])
       const newConversation = [...conversation, { type: 'user', text: userResponse }, { type: 'ai', text: aiResponse }]
       setConversation(newConversation)
       
-      // Save to localStorage
       localStorage.setItem('interview_conversation', JSON.stringify(newConversation))
       
-      // Speak the AI response
-      speakText(aiResponse, currentQuestion >= 6) // Pass flag if this is the final question
+      speakText(aiResponse, currentQuestion >= 6)
       
-      // Move to next question or handle final question
       if (currentQuestion < 6) {
         setCurrentQuestion(prev => prev + 1)
       } else {
-        // This is the final question - don't route immediately
         setIsInterviewEnding(true)
-        // The routing will be handled by speakText when audio finishes
         console.log('Final question reached - waiting for audio to finish before routing')
       }
       
     } catch (err) {
       console.error("AI Response Generation Failed:", err)
       
-      // Personalized fallback for final question
       if (currentQuestion >= 6) {
-        // Extract name for fallback closing
         const userMessages = messages.filter(m => m.role === 'user')
         const firstMessage = userMessages[0]?.content?.toLowerCase() || ""
         
@@ -310,7 +291,6 @@ Example responses:
         setIsInterviewEnding(true)
         console.log('Final question fallback - waiting for audio to finish')
       } else {
-        // Regular fallback for non-final questions
         const simpleResponse = "I see. What else would you like to share?"
         
         setMessages(prev => [...prev, { role: "assistant", content: simpleResponse }])
@@ -331,7 +311,6 @@ Example responses:
     if (recognitionRef.current) {
       recognitionRef.current.stop()
     }
-    // Stop current audio
     if (currentAudioRef.current) {
       currentAudioRef.current.pause()
       currentAudioRef.current = null
@@ -414,7 +393,10 @@ Example responses:
         {/* Interview Title */}
         <div style={{ textAlign: 'center' }}>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', marginBottom: '1rem' }}>
-            {interviewConfig?.type?.charAt(0).toUpperCase() + interviewConfig?.type?.slice(1)} Interview
+            {interviewConfig?.type ? 
+              (interviewConfig.type.charAt(0).toUpperCase() + interviewConfig.type.slice(1) + ' Interview') : 
+              'AI Interview'
+            }
           </h2>
         </div>
 

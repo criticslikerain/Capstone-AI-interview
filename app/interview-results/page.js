@@ -54,8 +54,7 @@ export default function InterviewResults() {
 
   const generateVoiceSummary = async (analysisData, conversationData) => {
     try {
-      console.log('Generating voice summary...')
-      setSummaryGenerated(true)
+      console.log('Preparing voice summary...')
       const userMessages = conversationData.filter(msg => msg.type === 'user')
       let userName = ""
       if (userMessages.length > 0) {
@@ -67,23 +66,12 @@ export default function InterviewResults() {
         }
       }
 
-
-
-
       const summary = generateSummaryText(analysisData, userName)
       const response = await fetch('/api/interviews/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: summary })
       })
-
-
-
-
-
-
-
-
 
       if (response.ok) {
         const arrayBuffer = await response.arrayBuffer()
@@ -97,10 +85,11 @@ export default function InterviewResults() {
         audio.onended = () => setIsPlayingSummary(false)
         audio.onerror = () => setIsPlayingSummary(false)
         
-        audio.play()
+        setSummaryGenerated(true)
+        console.log('Voice summary prepared and ready to play')
       }
     } catch (error) {
-      console.error('Voice summary failed:', error)
+      console.error('Voice summary preparation failed:', error)
       setSummaryGenerated(false)
     }
   }
@@ -146,7 +135,7 @@ Overall, you showed good potential and with some targeted practice on the mentio
     return summary
   }
 
-  const toggleSummaryAudio = () => {
+  const toggleSummaryAudio = async () => {
     if (audioRef.current) {
       if (isPlayingSummary) {
         audioRef.current.pause()
@@ -155,8 +144,11 @@ Overall, you showed good potential and with some targeted practice on the mentio
         audioRef.current.play()
         setIsPlayingSummary(true)
       }
-    } else if (analysis) {
-      generateVoiceSummary(analysis, conversation)
+    } else if (analysis && conversation.length > 0) {
+      await generateVoiceSummary(analysis, conversation)
+      if (audioRef.current) {
+        audioRef.current.play()
+      }
     }
   }
 
@@ -181,15 +173,99 @@ Overall, you showed good potential and with some targeted practice on the mentio
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' }}>
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        backgroundColor: '#f9fafb',
+        fontFamily: 'Inter, sans-serif'
+      }}>
         <div style={{ textAlign: 'center' }}>
+          {/* Main Spinner */}
           <div style={{
-            width: '48px', height: '48px', border: '4px solid #f3f4f6',
-            borderTop: '4px solid #06b6d4', borderRadius: '50%',
-            animation: 'spin 1s linear infinite', margin: '0 auto'
+            width: '80px',
+            height: '80px',
+            border: '8px solid #e5e7eb',
+            borderTop: '8px solid #06b6d4',
+            borderRadius: '50%',
+            margin: '0 auto 2rem',
+            animation: 'spin 1s linear infinite'
           }}></div>
-          <p style={{ marginTop: '1rem', color: '#6b7280' }}>Analyzing your interview...</p>
+          
+          {/* Analysis Icon */}
+          <div style={{
+            width: '60px',
+            height: '60px',
+            backgroundColor: '#06b6d4',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1.5rem',
+            boxShadow: '0 4px 20px rgba(6, 182, 212, 0.3)'
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+              <path d="M9 11H7v8h2v-8zm4-4h-2v12h2V7zm4-2h-2v14h2V5z"/>
+              <path d="M5 3v18h14V3H5zm12 16H7V5h10v14z"/>
+            </svg>
+          </div>
+          
+          {/* Loading Text */}
+          <p style={{ 
+            marginTop: '1rem', 
+            color: '#374151',
+            fontSize: '1.25rem',
+            fontWeight: '600',
+            marginBottom: '1rem',
+            animation: 'pulse 2s ease-in-out infinite'
+          }}>
+            AI analyzing your interview...
+          </p>
+          
+          {/* Progress Dots */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            marginTop: '1.5rem'
+          }}>
+            {[0, 0.2, 0.4].map((delay, i) => (
+              <div key={i} style={{
+                width: '10px',
+                height: '10px',
+                backgroundColor: '#06b6d4',
+                borderRadius: '50%',
+                animation: `bounce 2s infinite ${delay}s`
+              }}></div>
+            ))}
+          </div>
+          
+          {/* Status Text */}
+          <p style={{
+            marginTop: '1.5rem',
+            color: '#6b7280',
+            fontSize: '0.875rem'
+          }}>
+            Processing your responses and generating insights...
+          </p>
         </div>
+        
+        <style jsx>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+          @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+          }
+        `}</style>
       </div>
     )
   }
@@ -265,13 +341,14 @@ Overall, you showed good potential and with some targeted practice on the mentio
                 borderRadius: '8px',
                 fontSize: '0.875rem',
                 fontWeight: '600',
-                cursor: 'pointer',
+                cursor: summaryGenerated || analysis ? 'pointer' : 'not-allowed',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
                 margin: '0 auto',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                transition: 'all 0.3s ease'
+                transition: 'all 0.3s ease',
+                opacity: summaryGenerated || analysis ? 1 : 0.6
               }}
               disabled={!summaryGenerated && !analysis}
             >

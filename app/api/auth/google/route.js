@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { OAuth2Client } from 'google-auth-library';
-import { query } from '../../../../lib/db';
-import jwt from 'jsonwebtoken';
+import { db } from '../../../../lib/firebase';
+import { collection, query as firestoreQuery, where, getDocs, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { sign } from 'jsonwebtoken';
+import crypto from 'crypto';
 
 
 //****************************************************************************
@@ -46,56 +48,85 @@ export async function POST(request) {
     }
 
     //*******************************************************************
-    // CHECK KUNG NAA NA BA ANG USER
+    // CHECK KUNG NAA NA BA ANG USER SA FIRESTORE
     // Kung wala pa, mag create ta ug bag-ong user gamit ang info gikan sa Google
     //*******************************************************************
-    let users = await query('SELECT * FROM users WHERE email = ?', [email]);
-    let user;
-
-    if (users.length === 0) {
-      // himo new user
-      const userId = crypto.randomUUID();
-      await query(
-        'INSERT INTO users (id, email, first_name, last_name, profile_picture_url, is_email_verified, user_type) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [userId, email, given_name || 'User', family_name || '', picture, true, 'user']
-      );
-      users = await query('SELECT * FROM users WHERE id = ?', [userId]);
+    const usersQuery = firestoreQuery(collection(db, 'users'), where('email', '==', email));
+    const querySnapshot = await getDocs(usersQuery);
+    
+    let userId;
+    
+    if (querySnapshot.empty) {
+      // Create new user in Firestore
+      userId = crypto.randomUUID();
+      const userData = {
+        email: email,
+        first_name: given_name || 'User',
+        last_name: family_name || '',
+        profile_picture_url: picture,
+        is_email_verified: true,
+        user_type: 'user',
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+        last_login: serverTimestamp()
+      };
+      
+      const userDoc = doc(db, 'users', userId);
+      await setDoc(userDoc, userData);
+    } else {
+      // User already exists, get the existing user
+      const existingUser = querySnapshot.docs[0];
+      userId = existingUser.id;
+      const userDoc = existingUser.ref;
+      
+      // Update last login
+      await updateDoc(userDoc, {
+        last_login: serverTimestamp(),
+        updated_at: serverTimestamp()
+      });
     }
+    // Get user data
+    const userData = {
+      id: userId,
+      email: email,
+      first_name: given_name || 'User',
+      last_name: family_name || '',
+      user_type: querySnapshot.empty ? 'user' : querySnapshot.docs[0].data().user_type || 'user',
+      profile_picture_url: picture
+    };
 
-    user = users[0];
-
-    //*******************************************************************
-    // UPDATE LAST LOGIN
-    // Para ma record kanus-a last ni login ang user
-    //*******************************************************************
-    await query('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]);
-    const token = jwt.sign(
+    // Generate JWT token
+    const token = sign(
       { 
-        userId: user.id, 
-        email: user.email, 
-        userType: user.user_type 
+        userId: userId, 
+        email: email, 
+        userType: userData.user_type 
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
+
     const response = NextResponse.json({
       message: 'Login successful',
       user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        userType: user.user_type,
-        profilePicture: user.profile_picture_url
+        id: userData.id,
+        email: userData.email,
+        firstName: userData.first_name,
+        lastName: userData.last_name,
+        userType: userData.user_type,
+        profilePicture: userData.profile_picture_url
       },
-      redirectTo: user.user_type === 'admin' ? '/dashboard' : '/user-dashboard'
+      redirectTo: userData.user_type === 'admin' ? '/admin' : '/user-dashboard'
     });
-    response.cookies.set('auth-token', token, {
+
+    // Set HTTP-only cookie with the token
+    response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
     });
+
     return response;
 
   } catch (error) {

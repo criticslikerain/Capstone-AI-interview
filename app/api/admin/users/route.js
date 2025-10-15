@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
-import { query } from '../../../../lib/db.js'
+import { getAllUsers } from '../../../../lib/firebase.js'
 
 function verifyAdmin(request) {
   const token = request.cookies.get('token')?.value
@@ -14,12 +14,7 @@ export async function GET(request) {
   try {
     verifyAdmin(request)
     
-    const users = await query(`
-      SELECT id, email, first_name, last_name, user_type, is_active, 
-             is_email_verified, created_at, last_login
-      FROM users 
-      ORDER BY created_at DESC
-    `)
+    const users = await getAllUsers()
 
     return NextResponse.json({ users })
 

@@ -1,58 +1,55 @@
 import { NextResponse } from 'next/server'
-import bcrypt from 'bcryptjs'
-import { query } from '../../../../lib/db.js'
+import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { doc, setDoc } from 'firebase/firestore'
+import { auth, db } from '../../../../lib/firebase'
+
 export async function POST(request) {
   try {
     const { email, password, firstName, lastName } = await request.json()
+    
     if (!email || !password || !firstName || !lastName) {
       return NextResponse.json(
         { error: 'All fields are required' },
         { status: 400 }
       )
     }
-    //=================================================
-    // I-check kung naa na ning user
-    // Para walay duplicate accounts
-    //=================================================
-    const existingUsers = await query(
-      'SELECT id FROM users WHERE email = ?',
-      [email]
-    )
-    if (existingUsers.length > 0) {
-      return NextResponse.json(
-        { error: 'User already exists' },
-        { status: 409 }
-      )
-    }
 
+    // Create user with Firebase Auth
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+    const user = userCredential.user
 
-
-
-
-    
-    // Hash password
-    const saltRounds = 12
-    const hashedPassword = await bcrypt.hash(password, saltRounds)
-
-    //=================================================
-    // I-create ang bag-o nga user account
-    //=================================================
-    await db.query(
-      `INSERT INTO users (email, password_hash, first_name, last_name, user_type) 
-       VALUES (?, ?, ?, ?, 'user')`,
-      [email, hashedPassword, firstName, lastName]
-    )
+    // Store additional user data in Firestore
+    await setDoc(doc(db, 'users', user.uid), {
+      email,
+      first_name: firstName,
+      last_name: lastName,
+      user_type: 'user',
+      is_active: true,
+      is_email_verified: false,
+      created_at: new Date(),
+      updated_at: new Date()
+    })
 
     return NextResponse.json({
       message: 'User created successfully',
-      userId: result.insertId
+      userId: user.uid
     }, { status: 201 })
 
   } catch (error) {
     console.error('Registration error:', error)
+    
+    let errorMessage = 'Internal server error'
+    if (error.code === 'auth/email-already-in-use') {
+      errorMessage = 'User already exists'
+    } else if (error.code === 'auth/weak-password') {
+      errorMessage = 'Password should be at least 6 characters'
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'Invalid email address'
+    }
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: errorMessage },
+      { status: 400 }
     )
   }
 }

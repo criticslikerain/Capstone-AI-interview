@@ -2,113 +2,138 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
-  Home, 
-  Clock, 
-  Zap, 
-  HelpCircle, 
-  CreditCard, 
-  User, 
-  Settings,
   BarChart3,
   Calendar,
   MessageCircle,
-  Star
+  Star,
+  Clock,
+  HelpCircle,
+  Zap
 } from 'lucide-react'
-import ChatBubbleLogo from '../../components/ChatBubbleLogo'
+import { useAuth } from '../contexts/AuthContext'
+import Sidebar from '../../components/Sidebar'
 
 export default function UserDashboard() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
+  const { user, userProfile, getInitials, getFullName } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
+    if (!user) {
+      router.push('/login')
+      return
+    }
     fetchSessions()
-  }, [])
+  }, [user, router])
 
   const fetchSessions = async () => {
     try {
-      const response = await fetch('/api/interviews/sessions')
+      if (!user) return
+      
+      const token = await user.getIdToken()
+      const response = await fetch('/api/interviews/sessions', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
       if (response.ok) {
         const data = await response.json()
-        setSessions(data.sessions)
+        setSessions(data.sessions || [])
       } else if (response.status === 401) {
         router.push('/login')
       }
     } catch (error) {
       console.error('Error fetching sessions:', error)
+      setSessions([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-      router.push('/login')
-    } catch (error) {
-      console.error('Logout error:', error)
-    }
-  }
-
-  const handleNavigation = (itemId) => {
-    switch(itemId) {
-      case 'dashboard':
-        router.push('/user-dashboard')
-        break
-      case 'live-interview':
-        router.push('/live-ai-interview')
-        break
-      case 'past-interviews':
-        router.push('/weakness-overview')
-        break
-      case 'question-bank':
-        router.push('/question-bank')
-        break
-      case 'subscriptions':
-        router.push('/my-plan')
-        break
-      case 'profile':
-        router.push('/profile')
-        break
-      case 'settings':
-        router.push('/settings')
-        break
-      default:
-        break
-    }
-  }
-
-  const sidebarItems = [
-    { id: 'dashboard', icon: Home, label: 'Dashboard' },
-    { id: 'past-interviews', icon: Clock, label: 'Past Interviews' },
-    { id: 'live-interview', icon: Zap, label: 'Live AI Interview' },
-    { id: 'question-bank', icon: HelpCircle, label: 'Question Bank' },
-    { id: 'subscriptions', icon: CreditCard, label: 'Subscriptions' },
-    { id: 'profile', icon: User, label: 'Profile' },
-    { id: 'settings', icon: Settings, label: 'Settings' }
-  ]
-
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid #f3f4f6',
-            borderTop: '4px solid #06b6d4',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto'
-          }}></div>
-          <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading dashboard...</p>
+      <>
+        <style jsx>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+          .spinner {
+            animation: spin 1s linear infinite;
+          }
+          .pulse-text {
+            animation: pulse 2s ease-in-out infinite;
+          }
+        `}</style>
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f9fafb'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div 
+              className="spinner"
+              style={{
+                width: '64px',
+                height: '64px',
+                border: '6px solid #e5e7eb',
+                borderTop: '6px solid #06b6d4',
+                borderRadius: '50%',
+                margin: '0 auto',
+                marginBottom: '1.5rem'
+              }}
+            ></div>
+            <p 
+              className="pulse-text"
+              style={{ 
+                marginTop: '1rem', 
+                color: '#374151',
+                fontSize: '1.125rem',
+                fontWeight: '500',
+                fontFamily: 'Inter, sans-serif'
+              }}
+            >
+              Loading dashboard...
+            </p>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              marginTop: '1rem'
+            }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#06b6d4',
+                borderRadius: '50%',
+                animation: 'pulse 1.5s ease-in-out infinite'
+              }}></div>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#06b6d4',
+                borderRadius: '50%',
+                animation: 'pulse 1.5s ease-in-out infinite 0.2s'
+              }}></div>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                backgroundColor: '#06b6d4',
+                borderRadius: '50%',
+                animation: 'pulse 1.5s ease-in-out infinite 0.4s'
+              }}></div>
+            </div>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
@@ -120,132 +145,7 @@ export default function UserDashboard() {
       overflow: 'hidden'
     }}>
       {/* Sidebar */}
-      <div style={{
-        width: '280px',
-        backgroundColor: '#1f2937',
-        backgroundImage: 'url("https://images.pexels.com/photos/12902862/pexels-photo-12902862.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2")',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        color: 'white',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        height: '100vh',
-        zIndex: 10
-      }}>
-        {/* Dark overlay for sidebar */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(31, 41, 55, 0.9)',
-          zIndex: 1
-        }}></div>
-        
-        {/* Sidebar content wrapper */}
-        <div style={{
-          position: 'relative',
-          zIndex: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%'
-        }}>
-          {/* Logo Section */}
-          <div style={{
-            padding: '2rem 1.5rem',
-            borderBottom: '1px solid rgba(55, 65, 81, 0.5)'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem'
-            }}>
-              <ChatBubbleLogo size={48} />
-              <h2 style={{
-                fontSize: '1.25rem',
-                fontWeight: 'bold',
-                margin: 0,
-                color: 'white'
-              }}>
-                InterviewPro
-              </h2>
-            </div>
-          </div>
-
-          {/* Navigation */}
-          <nav style={{ flex: 1, padding: '1rem 0' }}>
-            {sidebarItems.map((item) => {
-              const Icon = item.icon
-              const isActive = item.id === 'dashboard'
-              
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavigation(item.id)}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.75rem 1.5rem',
-                    backgroundColor: isActive ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
-                    color: 'white',
-                    border: 'none',
-                    borderLeft: isActive ? '4px solid #06b6d4' : '4px solid transparent',
-                    cursor: 'pointer',
-                    fontSize: '1rem',
-                    textAlign: 'left',
-                    transition: 'all 0.2s',
-                    position: 'relative'
-                  }}
-                  onMouseOver={(e) => {
-                    if (!isActive) e.target.style.backgroundColor = 'rgba(55, 65, 81, 0.7)'
-                  }}
-                  onMouseOut={(e) => {
-                    if (!isActive) e.target.style.backgroundColor = 'transparent'
-                  }}
-                >
-                  <Icon size={20} />
-                  {item.label}
-                </button>
-              )
-            })}
-          </nav>
-
-          {/* Logout Button */}
-          <div style={{ padding: '1rem' }}>
-            <button
-              onClick={handleLogout}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem',
-                backgroundColor: '#dc2626',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '1rem',
-                fontWeight: '500'
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16,17 21,12 16,7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Sidebar activeItem="dashboard" />
 
       {/* Main Content */}
       <div style={{
@@ -273,17 +173,21 @@ export default function UserDashboard() {
               alignItems: 'center',
               gap: '1rem'
             }}>
-              <img
-                src="https://scontent.fceb2-1.fna.fbcdn.net/v/t39.30808-6/332894731_871500290627490_9114427192078729508_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=6ee11a&_nc_eui2=AeEIQK4MFgnnRT9WfUg2B6s136FuOVzB0ezfoW45XMHR7GLHbu64z4xh439aJE-Nbc3U3zbd5CTvoo94jdtMy3N9&_nc_ohc=NcggS-PF0-YQ7kNvwEnFr6M&_nc_oc=AdmeDZmzyHsvb6r0FV2ZRFXlM9ivTKJ6uCa92aRo5yfmBZx-PSHmFy6Cy2WeumNPo3E&_nc_zt=23&_nc_ht=scontent.fceb2-1.fna&_nc_gid=YkQdYl3LxA2evXlqFcpT-A&oh=00_AfUgs_cUtw8mcGo5D5X2VU8M7Y4nPEiFGcH52XLOnN2pUg&oe=689D38F6"
-                alt="User Profile"
-                style={{
-                  width: '60px',
-                  height: '60px',
-                  borderRadius: '50%',
-                  objectFit: 'cover',
-                  border: '3px solid rgba(255, 255, 255, 0.3)'
-                }}
-              />
+              <div style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                backgroundColor: '#06b6d4',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '3px solid rgba(255, 255, 255, 0.3)',
+                fontSize: '1.5rem',
+                fontWeight: 'bold',
+                color: 'white'
+              }}>
+                {getInitials()}
+              </div>
               <div>
                 <h1 style={{
                   fontSize: '2rem',
@@ -299,7 +203,14 @@ export default function UserDashboard() {
                   margin: 0,
                   fontWeight: '500'
                 }}>
-                  John!
+                  {getFullName().split(' ')[0] || 'User'}!
+                </p>
+                <p style={{
+                  fontSize: '0.875rem',
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  margin: 0
+                }}>
+                  {userProfile?.email}
                 </p>
               </div>
             </div>
@@ -314,8 +225,7 @@ export default function UserDashboard() {
               backgroundColor: 'white',
               borderRadius: '12px',
               padding: '2rem',
-              marginBottom: '2rem',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+              marginBottom: '2rem'
             }}>
               <div style={{
                 display: 'flex',
@@ -500,8 +410,7 @@ export default function UserDashboard() {
               backgroundColor: 'white',
               borderRadius: '12px',
               padding: '2rem',
-              marginBottom: '2rem',
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+              marginBottom: '2rem'
             }}>
               <div style={{
                 display: 'flex',
@@ -509,22 +418,15 @@ export default function UserDashboard() {
                 gap: '0.75rem',
                 marginBottom: '0.5rem'
               }}>
-                <div style={{
-                  width: '32px',
-                  height: '32px',
-                  backgroundColor: '#06b6d4',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
-                  </svg>
-                </div>
+                <img
+                  src="/assets/images/weakness_overview.png"
+                  alt="Past Interviews"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    objectFit: 'contain'
+                  }}
+                />
                 <h2 style={{
                   fontSize: '1.5rem',
                   fontWeight: 'bold',
@@ -548,7 +450,7 @@ export default function UserDashboard() {
                 <div style={{ textAlign: 'center', padding: '2rem' }}>
                   <p style={{ color: '#6b7280', marginBottom: '1rem' }}>No interview sessions yet.</p>
                   <button
-                    onClick={() => router.push('/live-ai-interview')}
+                    onClick={() => router.push('/live-ai-interview-content-page')}
                     style={{
                       backgroundColor: '#06b6d4',
                       color: 'white',
@@ -635,7 +537,7 @@ export default function UserDashboard() {
               {/* Start Mock Interview Button */}
               <div style={{ marginTop: '2rem' }}>
                 <button 
-                  onClick={() => router.push('/live-ai-interview')}
+                  onClick={() => router.push('/live-ai-interview-content-page')}
                   style={{
                     width: '100%',
                     padding: '1rem 2rem',

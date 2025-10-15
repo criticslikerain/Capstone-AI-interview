@@ -1,174 +1,396 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Mic, Video, Play } from 'lucide-react'
 
 export default function LiveAIInterview() {
   const router = useRouter()
-  const [selectedType, setSelectedType] = useState('behavioral')
-  const [difficulty, setDifficulty] = useState('intermediate')
+  const [selectedInterviewType, setSelectedInterviewType] = useState('behavioral')
+  const [selectedDifficulty, setSelectedDifficulty] = useState('intermediate')
+  const [voiceRecording, setVoiceRecording] = useState(true)
+  const [videoRecording, setVideoRecording] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState('')
 
-  const interviewTypes = [
-    { id: 'behavioral', name: 'Behavioral', description: 'Questions about your past experiences and behavior' },
-    { id: 'technical', name: 'Technical', description: 'Technical skills and problem-solving questions' },
-    { id: 'situational', name: 'Situational', description: 'Hypothetical scenarios and how you would handle them' }
-  ]
-
-  const difficultyLevels = [
-    { id: 'beginner', name: 'Beginner', description: 'Entry-level questions' },
-    { id: 'intermediate', name: 'Intermediate', description: 'Mid-level professional questions' },
-    { id: 'advanced', name: 'Advanced', description: 'Senior-level challenging questions' }
-  ]
+  useEffect(() => {
+    const category = sessionStorage.getItem('interviewCategory')
+    if (category) {
+      setSelectedCategory(category)
+    } else {
+      router.push('/live-ai-interview-content-page')
+    }
+  }, [])
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{
+      display: 'flex',
+      height: '100vh',
+      fontFamily: 'Inter, sans-serif',
+      backgroundColor: '#ffffff',
+      overflow: 'hidden'
+    }}>
+      {/* Back Button - Fixed at top left */}
       <div style={{
-        backgroundColor: 'white',
-        borderBottom: '1px solid #e5e7eb',
-        padding: '1rem 2rem'
+        position: 'absolute',
+        top: '1rem',
+        left: '1rem',
+        zIndex: 20
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button
-            onClick={() => router.push('/user-dashboard')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.5rem 1rem',
-              backgroundColor: 'transparent',
-              border: '1px solid #d1d5db',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              color: '#374151'
-            }}
-          >
-            <ArrowLeft size={16} />
-            Back to Dashboard
-          </button>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>
-            Live AI Interview
-          </h1>
+        <button
+          onClick={() => router.push('/live-ai-interview-content-page')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 1rem',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            border: '1px solid #e5e7eb',
+            borderRadius: '6px',
+            color: '#6b7280',
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            backdropFilter: 'blur(10px)'
+          }}
+          onMouseOver={(e) => {
+            e.target.style.backgroundColor = '#f9fafb'
+            e.target.style.borderColor = '#d1d5db'
+          }}
+          onMouseOut={(e) => {
+            e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.9)'
+            e.target.style.borderColor = '#e5e7eb'
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 12H5m0 0l7 7m-7-7l7-7"/>
+          </svg>
+          Change Category
+        </button>
+      </div>
+
+      {/* 3D Robot Section */}
+      <div style={{
+        flex: '0 0 400px',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '1rem',
+        backgroundColor: '#ffffff'
+      }}>
+        <div style={{
+          width: '350px',
+          aspectRatio: '1 / 1',
+          border: 'none',
+          overflow: 'hidden',
+          borderRadius: '10px',
+          position: 'relative'
+        }}>
+          <iframe
+            src="https://my.spline.design/genkubgreetingrobot-dKSdmkp6P4tsfaGKQgqQXWPd/"
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            allow="fullscreen; vr"
+          ></iframe>
+          {/* White mask to cover Spline copyright */}
+          <div style={{
+            position: 'absolute',
+            bottom: '15px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '350px',
+            height: '45px',
+            backgroundColor: '#ffffff',
+            borderRadius: '6px',
+            zIndex: 10
+          }}></div>
         </div>
       </div>
 
-      <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+      {/* Interview Setup Form */}
+      <div style={{
+        flex: '1',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        padding: '2rem',
+        backgroundColor: '#ffffff',
+        overflow: 'hidden'
+      }}>
         <div style={{
-          backgroundColor: 'white',
-          borderRadius: '12px',
-          padding: '2rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          marginBottom: '2rem'
+          maxWidth: '700px',
+          width: '100%',
+          margin: '0 auto'
         }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', marginBottom: '1rem' }}>
-            Interview Setup
-          </h2>
+          <h1 style={{
+            fontSize: '2rem',
+            fontWeight: 'bold',
+            color: '#1f2937',
+            marginBottom: '0.5rem'
+          }}>
+            Live AI Interview
+          </h1>
+          
+          <p style={{
+            fontSize: '1rem',
+            color: '#6b7280',
+            marginBottom: '0.5rem'
+          }}>
+            Set up your personalized interview experience
+          </p>
 
-          <div style={{ marginBottom: '2rem' }}>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
+          {selectedCategory && (
+            <div style={{
+              display: 'inline-block',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#e0f2fe',
+              border: '1px solid #06b6d4',
+              borderRadius: '6px',
+              marginBottom: '1.5rem'
+            }}>
+              <span style={{
+                fontSize: '0.875rem',
+                color: '#06b6d4',
+                fontWeight: '600'
+              }}>
+                Category: {selectedCategory.split('-').map(word => 
+                  word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ')}
+              </span>
+            </div>
+          )}
+
+          {/* Interview Type */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <h3 style={{
+              fontSize: '1rem',
+              fontWeight: '500',
+              color: '#6b7280',
+              marginBottom: '0.75rem'
+            }}>
               Interview Type
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-              {interviewTypes.map((type) => (
+            </h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '0.75rem'
+            }}>
+              {['behavioral', 'technical', 'situational'].map((type) => (
                 <button
-                  key={type.id}
-                  onClick={() => setSelectedType(type.id)}
+                  key={type}
+                  onClick={() => setSelectedInterviewType(type)}
                   style={{
-                    padding: '1rem',
-                    border: selectedType === type.id ? '2px solid #06b6d4' : '1px solid #d1d5db',
+                    padding: '1rem 0.75rem',
+                    backgroundColor: selectedInterviewType === type ? '#e0f2fe' : 'white',
+                    border: selectedInterviewType === type ? '2px solid #06b6d4' : '1px solid #e5e7eb',
                     borderRadius: '8px',
-                    backgroundColor: selectedType === type.id ? '#f0f9ff' : 'white',
                     cursor: 'pointer',
-                    textAlign: 'left'
+                    textAlign: 'left',
+                    transition: 'all 0.2s',
+                    minHeight: '80px'
                   }}
                 >
-                  <div style={{ fontWeight: '600', color: '#111827', marginBottom: '0.25rem' }}>
-                    {type.name}
+                  <div style={{
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: selectedInterviewType === type ? '#06b6d4' : '#1f2937',
+                    marginBottom: '0.25rem',
+                    textTransform: 'capitalize'
+                  }}>
+                    {type}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                    {type.description}
+                  <div style={{
+                    fontSize: '0.75rem',
+                    color: '#6b7280',
+                    lineHeight: '1.3'
+                  }}>
+                    {type === 'behavioral' && 'Past experiences and behavior'}
+                    {type === 'technical' && 'Technical skills and problems'}
+                    {type === 'situational' && 'Hypothetical scenarios'}
                   </div>
                 </button>
               ))}
             </div>
           </div>
 
-          <div style={{ marginBottom: '2rem' }}>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
+          {/* Difficulty Level */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <h3 style={{
+              fontSize: '1rem',
+              fontWeight: '500',
+              color: '#6b7280',
+              marginBottom: '0.75rem'
+            }}>
               Difficulty Level
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-              {difficultyLevels.map((level) => (
+            </h3>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '0.75rem'
+            }}>
+              {['beginner', 'intermediate', 'advanced'].map((level) => (
                 <button
-                  key={level.id}
-                  onClick={() => setDifficulty(level.id)}
+                  key={level}
+                  onClick={() => setSelectedDifficulty(level)}
                   style={{
-                    padding: '1rem',
-                    border: difficulty === level.id ? '2px solid #06b6d4' : '1px solid #d1d5db',
+                    padding: '1rem 0.75rem',
+                    backgroundColor: selectedDifficulty === level ? '#e0f2fe' : 'white',
+                    border: selectedDifficulty === level ? '2px solid #06b6d4' : '1px solid #e5e7eb',
                     borderRadius: '8px',
-                    backgroundColor: difficulty === level.id ? '#f0f9ff' : 'white',
                     cursor: 'pointer',
-                    textAlign: 'left'
+                    textAlign: 'left',
+                    transition: 'all 0.2s',
+                    minHeight: '80px'
                   }}
                 >
-                  <div style={{ fontWeight: '600', color: '#111827', marginBottom: '0.25rem' }}>
-                    {level.name}
+                  <div style={{
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: selectedDifficulty === level ? '#06b6d4' : '#1f2937',
+                    marginBottom: '0.25rem',
+                    textTransform: 'capitalize'
+                  }}>
+                    {level}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                    {level.description}
+                  <div style={{
+                    fontSize: '0.75rem',
+                    color: '#6b7280'
+                  }}>
+                    {level === 'beginner' && 'Entry-level questions'}
+                    {level === 'intermediate' && 'Mid-level professional'}
+                    {level === 'advanced' && 'Senior-level challenging'}
                   </div>
                 </button>
               ))}
             </div>
           </div>
 
+          {/* Interview Settings */}
           <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>
+            <h3 style={{
+              fontSize: '1rem',
+              fontWeight: '500',
+              color: '#6b7280',
+              marginBottom: '0.75rem'
+            }}>
               Interview Settings
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Mic size={16} color="#06b6d4" />
-                <span style={{ fontSize: '0.875rem', color: '#374151' }}>Voice Recording: Enabled</span>
+            <div style={{
+              display: 'flex',
+              gap: '2rem'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  backgroundColor: voiceRecording ? '#06b6d4' : '#e5e7eb',
+                  borderRadius: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {voiceRecording && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                  )}
+                </div>
+                <span style={{ color: '#374151', fontSize: '0.875rem' }}>
+                  Voice Recording: Enabled
+                </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Video size={16} color="#06b6d4" />
-                <span style={{ fontSize: '0.875rem', color: '#374151' }}>Video Recording: Optional</span>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  backgroundColor: videoRecording ? '#06b6d4' : '#e5e7eb',
+                  borderRadius: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {videoRecording && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                  )}
+                </div>
+                <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                  Video Recording: Optional
+                </span>
               </div>
             </div>
           </div>
 
+          {/* Start Interview Button */}
           <button
             onClick={() => {
-              // Store interview configuration
               sessionStorage.setItem('interviewConfig', JSON.stringify({
-                type: selectedType,
-                difficulty: difficulty,
-                responseType: 'voice'
-              }))
-              router.push('/voice-interview')
+                category: selectedCategory,
+                interviewType: selectedInterviewType,
+                difficulty: selectedDifficulty,
+                voiceRecording,
+                videoRecording
+              }));
+              router.push('/voice-interview');
             }}
             style={{
               width: '100%',
               padding: '1rem 2rem',
-              backgroundColor: '#06b6d4',
+              backgroundColor: '#00bfa6',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
-              fontSize: '1rem',
+              fontSize: '1.125rem',
               fontWeight: '600',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.5rem',
-              boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)'
+              transition: 'all 0.2s'
             }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#00a38d'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#00bfa6'}
           >
-            <Play size={20} />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
             Start Interview
           </button>
         </div>
       </div>
+
+      <style jsx>{`
+        @media (max-width: 1024px) {
+          div[style*="display: flex"][style*="height: 100vh"] {
+            flex-direction: column !important;
+          }
+          
+          div[style*="flex: 0 0 400px"] {
+            flex: none !important;
+            padding: 1rem !important;
+          }
+          
+          div[style*="flex: 1"] {
+            padding: 1rem !important;
+          }
+        }
+        
+        @media (max-width: 768px) {
+          div[style*="flex: 0 0 400px"] {
+            display: none !important;
+          }
+          
+          div[style*="grid-template-columns: repeat(3, 1fr)"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
