@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Mail, ArrowLeft } from 'lucide-react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
@@ -7,7 +7,7 @@ import { doc, setDoc } from 'firebase/firestore'
 import { auth, db } from '../../lib/firebase'
 import ChatBubbleLogo from '../../components/ChatBubbleLogo'
 
-export default function EmailVerification() {
+function EmailVerificationContent() {
   const [verificationCode, setVerificationCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -282,5 +282,13 @@ export default function EmailVerification() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function EmailVerification() {
+  return (
+    <Suspense fallback={<div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>}>
+      <EmailVerificationContent />
+    </Suspense>
   )
 }
