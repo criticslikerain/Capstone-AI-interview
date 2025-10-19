@@ -44,7 +44,6 @@ const CategoriesPage = () => {
         { path: '/user-dashboard', name: 'User Dashboard', icon: Home, description: 'Main user dashboard with performance overview' }
       ]
     },
-    // Interview Routes
     {
       category: 'Interview System',
       routes: [
@@ -60,7 +59,6 @@ const CategoriesPage = () => {
         { path: '/weakness-overview', name: 'Weakness Overview', icon: AlertTriangle, description: 'Detailed weakness analysis and improvement tips' }
       ]
     },
-    // Content Routes
     {
       category: 'Content & Resources',
       routes: [

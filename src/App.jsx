@@ -8,6 +8,7 @@ import SetupProfile from './pages/SetupProfile';
 import Dashboard from './pages/Dashboard';
 import UserDashboard from './pages/UserDashboard';
 import LiveAIInterview from './pages/LiveAIInterview';
+import LiveAIInterviewContentPage from './pages/LiveAIInterviewContentPage';
 import VoiceInterview from './pages/VoiceInterview';
 import InterviewResults from './pages/InterviewResults';
 import WeaknessOverview from './pages/WeaknessOverview';
@@ -107,6 +108,22 @@ const UserDashboardWrapper = () => {
 
   return (
     <UserDashboard
+      onLogout={() => {
+        console.log('User logged out');
+        sessionStorage.removeItem('isAuthenticated');
+        sessionStorage.removeItem('userEmail');
+        sessionStorage.removeItem('userType');
+        navigate('/login');
+      }}
+    />
+  );
+};
+
+const LiveAIInterviewContentPageWrapper = () => {
+  const navigate = useNavigate();
+
+  return (
+    <LiveAIInterviewContentPage
       onLogout={() => {
         console.log('User logged out');
         sessionStorage.removeItem('isAuthenticated');
@@ -273,6 +290,7 @@ function App() {
         <Route path="/setup-profile" element={<SetupProfileWrapper />} />
         <Route path="/dashboard" element={<DashboardWrapper />} />
         <Route path="/user-dashboard" element={<UserDashboardWrapper />} />
+        <Route path="/live-ai-interview-content-page" element={<LiveAIInterviewContentPageWrapper />} />
         <Route path="/live-ai-interview" element={<LiveAIInterviewWrapper />} />
         <Route path="/voice-interview" element={<VoiceInterviewWrapper />} />
         <Route path="/interview-results" element={<InterviewResultsWrapper />} />

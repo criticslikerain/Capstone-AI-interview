@@ -2,11 +2,14 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Pricing() {
   const router = useRouter()
+  const { user } = useAuth()
   const [isVisible, setIsVisible] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
+  const [processingPlan, setProcessingPlan] = useState(null)
 
   useEffect(() => {
     setTimeout(() => setIsVisible(true), 100)
@@ -16,11 +19,49 @@ export default function Pricing() {
     router.push('/')
   }
 
-  const handleSelectPlan = (plan) => {
+  const handleSelectPlan = async (plan, price, period) => {
     if (plan === 'free') {
       router.push('/login')
-    } else {
-      router.push('/my-plan')
+      return
+    }
+
+    // Check if user is logged in
+    if (!user) {
+      alert('Please login first to subscribe')
+      router.push('/login')
+      return
+    }
+
+    setProcessingPlan(plan)
+
+    try {
+      // Create PayMongo checkout session
+      const response = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount: price,
+          description: `InterviewPro ${period === 'monthly' ? 'Monthly' : 'Yearly'} Subscription`,
+          plan: plan,
+          period: period,
+          userId: user.uid
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.checkoutUrl) {
+        // Redirect to PayMongo checkout page
+        window.location.href = data.checkoutUrl
+      } else {
+        throw new Error(data.error || 'Failed to create checkout session')
+      }
+    } catch (error) {
+      console.error('Error creating checkout:', error)
+      alert('Failed to process payment. Please try again.')
+      setProcessingPlan(null)
     }
   }
 
@@ -71,21 +112,21 @@ export default function Pricing() {
 
         .header {
           text-align: center;
-          margin-bottom: 3rem;
+          margin-bottom: 2rem;
           opacity: ${isVisible ? '1' : '0'};
           transform: translateY(${isVisible ? '0' : '30px'});
           transition: all 0.8s ease;
         }
 
         .header h1 {
-          font-size: 3rem;
+          font-size: 2rem;
           font-weight: 700;
-          margin-bottom: 1rem;
+          margin-bottom: 0.5rem;
           color: #1e293b;
         }
 
         .header p {
-          font-size: 1.2rem;
+          font-size: 1rem;
           color: #64748b;
           max-width: 600px;
           margin: 0 auto;
@@ -108,7 +149,7 @@ export default function Pricing() {
           width: 320px;
           text-align: center;
           position: relative;
-          overflow: hidden;
+          overflow: visible;
           opacity: ${isVisible ? '1' : '0'};
           transform: translateY(${isVisible ? '0' : '50px'});
           transition: all 0.8s ease;
@@ -200,6 +241,24 @@ export default function Pricing() {
           border-radius: 12px;
           font-size: 0.75rem;
           font-weight: 600;
+          z-index: 10;
+          box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+          animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          25% {
+            transform: translateY(-8px) rotate(-2deg);
+          }
+          50% {
+            transform: translateY(-12px) rotate(0deg);
+          }
+          75% {
+            transform: translateY(-8px) rotate(2deg);
+          }
         }
 
         .yearly-badge {
@@ -290,9 +349,15 @@ export default function Pricing() {
           margin-top: 1rem;
         }
 
-        .select-button:hover {
+        .select-button:hover:not(:disabled) {
           background: #2d3748;
           transform: translateY(-2px);
+        }
+
+        .select-button:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+          opacity: 0.7;
         }
 
         .terms-section {
@@ -516,6 +581,12 @@ export default function Pricing() {
               <li><span className="info-icon"><RefreshCw size={16} /></span> Mock interview and question bank sessions renew every month</li>
               <li><span className="cross-icon">✗</span> No personalized coaching</li>
             </ul>
+            <button
+              className="select-button"
+              onClick={() => handleSelectPlan('free', 0, 'free')}
+            >
+              Get Started Free
+            </button>
           </div>
 
           {/* Monthly Plan */}
@@ -530,6 +601,13 @@ export default function Pricing() {
               <li><span className="check-icon">✓</span> Advanced interview feedback access</li>
               <li><span className="check-icon">✓</span> Strength and Weakness Analysis</li>
             </ul>
+            <button
+              className="select-button"
+              onClick={() => handleSelectPlan('premium', 399, 'monthly')}
+              disabled={processingPlan === 'premium'}
+            >
+              {processingPlan === 'premium' ? 'Processing...' : 'Select Monthly Plan'}
+            </button>
           </div>
 
           {/* Yearly Plan */}
@@ -545,6 +623,13 @@ export default function Pricing() {
               <li><span className="check-icon">✓</span> Strength and Weakness Analysis</li>
               <li><span className="yearly-badge">Save 20% when purchasing yearly</span></li>
             </ul>
+            <button
+              className="select-button"
+              onClick={() => handleSelectPlan('professional', 3830, 'yearly')}
+              disabled={processingPlan === 'professional'}
+            >
+              {processingPlan === 'professional' ? 'Processing...' : 'Select Yearly Plan'}
+            </button>
           </div>
         </div>
 
@@ -658,7 +743,7 @@ export default function Pricing() {
                 <div className="modal-section">
                   <h3>8. Contact Information</h3>
                   <p>For questions about these Terms or our services, please contact us at:</p>
-                  <p>Email: support@interviewpro.com<br />
+                  <p>Email: ai.interview.capstone@gmail.com<br />
                     Phone: +63 9762804013</p>
                 </div>
 

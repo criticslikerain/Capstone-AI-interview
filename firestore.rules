@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can only read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Interviews collection - allow authenticated users to manage their own interviews
+    match /interviews/{interviewId} {
+      // Allow read if Firebase auth matches OR if checking via app (temporary for custom auth)
+      allow read: if request.auth != null;
+      // Allow create if userId is provided in the document
+      allow create: if request.resource.data.userId != null;
+      // Allow update/delete if Firebase auth matches the userId
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    // Interview sessions - users can only access their own sessions
+    match /interview_sessions/{sessionId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+    
+    // Password reset tokens - allow creation, but only read if not expired
+    match /password_reset_tokens/{tokenId} {
+      allow create: if true;
+      allow read: if resource.data.expires_at > request.time && resource.data.is_used == false;
+      allow update: if true; // For marking as used
+    }
+    
+    // Question categories - read-only for authenticated users
+    match /question_categories/{categoryId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only admins should write (implement admin check if needed)
+    }
+    
+    // Question answers - users can only access their own answers
+    match /question_answers/{answerId} {
+      allow read: if request.auth != null && resource.data.user_id == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.user_id == request.auth.uid;
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

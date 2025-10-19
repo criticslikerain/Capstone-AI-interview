@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Auth Debug</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+    <h1>Google Auth Debug</h1>
+    <p>Current URL: <span id="currentUrl"></span></p>
+    <p>Origin: <span id="origin"></span></p>
+    
+    <div id="g_id_onload"
+         data-client_id="379371456417-qg0d82b441pc6j2q6f8oq1aj18ajfpfu.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse">
+    </div>
+    <div class="g_id_signin" data-type="standard"></div>
+
+    <script>
+        document.getElementById('currentUrl').textContent = window.location.href;
+        document.getElementById('origin').textContent = window.location.origin;
+        
+        function handleCredentialResponse(response) {
+            console.log("Encoded JWT ID token: " + response.credential);
+        }
+    </script>
+</body>
+</html>

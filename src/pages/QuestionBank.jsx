@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Home, 
   Clock, 
@@ -10,13 +10,28 @@ import {
   Settings,
   Search,
   Filter,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  CheckCircle,
+  Eye,
+  Loader
 } from 'lucide-react';
 import ChatBubbleLogo from '../components/ChatBubbleLogo';
+import AnalysisModal from '../components/AnalysisModal';
+import { fetchQuestionsFromAPI, getUserQuestionData, saveUserQuestionData, saveUserAnswer, saveAIAnalysis, shouldRefetchQuestions } from '../services/questionBankService';
+import { analyzeAnswer } from '../services/aiAnalysisService';
+import { auth } from '../../lib/firebase';
 
 const QuestionBank = ({ onLogout }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedCategory, setExpandedCategory] = useState(null);
+  const [categoryData, setCategoryData] = useState({});
+  const [loading, setLoading] = useState({});
+  const [userAnswers, setUserAnswers] = useState({});
+  const [analyzing, setAnalyzing] = useState({});
+  const [modalData, setModalData] = useState({ isOpen: false, analysis: '', category: '', question: '' });
+  const userId = auth.currentUser?.uid;
 
   const handleNavigation = (itemId) => {
     switch(itemId) {
@@ -67,7 +82,7 @@ const QuestionBank = ({ onLogout }) => {
         </svg>
       ),
       color: '#ef4444',
-      count: '25 Questions'
+      count: '5 Questions'
     },
     {
       id: 'technical',
@@ -79,7 +94,7 @@ const QuestionBank = ({ onLogout }) => {
         </svg>
       ),
       color: '#06b6d4',
-      count: '30 Questions'
+      count: '5 Questions'
     },
     {
       id: 'problem-solving',
@@ -92,9 +107,170 @@ const QuestionBank = ({ onLogout }) => {
         </svg>
       ),
       color: '#f59e0b',
-      count: '20 Questions'
+      count: '5 Questions'
     }
   ];
+
+  useEffect(() => {
+    if (userId) {
+      loadUserData();
+    }
+  }, [userId]);
+
+  const loadUserData = async () => {
+    for (const category of questionCategories) {
+      const userData = await getUserQuestionData(userId, category.id);
+      if (userData) {
+        setCategoryData(prev => ({ ...prev, [category.id]: userData }));
+        setUserAnswers(prev => ({ ...prev, [category.id]: userData.answers || {} }));
+      }
+    }
+  };
+
+  const handleCategoryClick = async (categoryId) => {
+    if (expandedCategory === categoryId) {
+      setExpandedCategory(null);
+      return;
+    }
+
+    setExpandedCategory(categoryId);
+
+    if (!categoryData[categoryId] || categoryData[categoryId].questions?.length === 0) {
+      setLoading(prev => ({ ...prev, [categoryId]: true }));
+      try {
+        const userData = await getUserQuestionData(userId, categoryId);
+        
+        if (userData && !shouldRefetchQuestions(userData)) {
+          setCategoryData(prev => ({ ...prev, [categoryId]: userData }));
+          setUserAnswers(prev => ({ ...prev, [categoryId]: userData.answers || {} }));
+        } else {
+          const data = await fetchQuestionsFromAPI(categoryId);
+          await saveUserQuestionData(userId, categoryId, {
+            batchId: data.batchId,
+            questions: data.questions,
+            fetchDate: data.fetchDate,
+            answers: {}
+          });
+          setCategoryData(prev => ({ ...prev, [categoryId]: data }));
+          setUserAnswers(prev => ({ ...prev, [categoryId]: {} }));
+        }
+      } catch (error) {
+        console.error('Error fetching questions:', error);
+      } finally {
+        setLoading(prev => ({ ...prev, [categoryId]: false }));
+      }
+    }
+  };
+
+  const handleAnswerChange = (categoryId, questionIndex, value) => {
+    setUserAnswers(prev => ({
+      ...prev,
+      [categoryId]: {
+        ...prev[categoryId],
+        [questionIndex]: {
+          ...prev[categoryId]?.[questionIndex],
+          answer: value
+        }
+      }
+    }));
+  };
+
+  const handleSubmitAnswer = async (categoryId, questionIndex, question) => {
+    const answer = userAnswers[categoryId]?.[questionIndex]?.answer;
+    if (!answer || !answer.trim()) return;
+
+    try {
+      await saveUserAnswer(userId, categoryId, questionIndex, answer);
+      setUserAnswers(prev => ({
+        ...prev,
+        [categoryId]: {
+          ...prev[categoryId],
+          [questionIndex]: {
+            ...prev[categoryId][questionIndex],
+            answeredAt: new Date(),
+            analyzed: false
+          }
+        }
+      }));
+
+      setAnalyzing(prev => ({ ...prev, [`${categoryId}_${questionIndex}`]: true }));
+      const analysis = await analyzeAnswer(question, answer);
+      await saveAIAnalysis(userId, categoryId, questionIndex, analysis);
+      
+      setUserAnswers(prev => ({
+        ...prev,
+        [categoryId]: {
+          ...prev[categoryId],
+          [questionIndex]: {
+            ...prev[categoryId][questionIndex],
+            analysis,
+            analyzed: true
+          }
+        }
+      }));
+    } catch (error) {
+      console.error('Error submitting answer:', error);
+    } finally {
+      setAnalyzing(prev => ({ ...prev, [`${categoryId}_${questionIndex}`]: false }));
+    }
+  };
+
+  const handleViewAnalysis = (categoryId, questionIndex, question) => {
+    const analysis = userAnswers[categoryId]?.[questionIndex]?.analysis;
+    if (analysis) {
+      setModalData({
+        isOpen: true,
+        analysis,
+        category: categoryId,
+        question,
+        allAnswers: null
+      });
+    }
+  };
+
+  const handleViewSummaryAnalysis = async (categoryId) => {
+    const questions = categoryData[categoryId]?.questions || [];
+    const answers = userAnswers[categoryId] || {};
+    
+    const qaList = questions.map((q, idx) => ({
+      question: q,
+      answer: answers[idx]?.answer || 'No answer provided'
+    })).filter(qa => qa.answer !== 'No answer provided');
+
+    if (qaList.length === 0) return;
+
+    setAnalyzing(prev => ({ ...prev, [`${categoryId}_summary`]: true }));
+    
+    const combinedText = qaList.map((qa, idx) => 
+      `Question ${idx + 1}: ${qa.question}\n\nYour Answer: ${qa.answer}`
+    ).join('\n\n---\n\n');
+
+    const summaryAnalysis = await analyzeAnswer(
+      `Summary Analysis for ${categoryId} category (${qaList.length} questions)`,
+      combinedText
+    );
+
+    setAnalyzing(prev => ({ ...prev, [`${categoryId}_summary`]: false }));
+
+    setModalData({
+      isOpen: true,
+      analysis: summaryAnalysis,
+      category: categoryId,
+      question: `Summary Analysis - ${qaList.length} Questions`,
+      allAnswers: qaList
+    });
+  };
+
+  const getAnsweredCount = (categoryId) => {
+    const answers = userAnswers[categoryId] || {};
+    return Object.values(answers).filter(a => a.answeredAt).length;
+  };
+
+  const filteredCategories = questionCategories.filter(cat => {
+    if (!searchQuery) return true;
+    const questions = categoryData[cat.id]?.questions || [];
+    return questions.some(q => q.toLowerCase().includes(searchQuery.toLowerCase()));
+  });
 
   return (
     <div style={{
@@ -288,10 +464,10 @@ const QuestionBank = ({ onLogout }) => {
 
           {/* Content Area */}
           <div style={{
-            maxWidth: '1000px',
+            width: '100%',
             margin: '0 auto',
-            padding: '2rem',
-            marginTop: '-1rem',
+            padding: '0.5rem',
+            marginTop: '2rem',
             position: 'relative',
             zIndex: 3
           }}>
@@ -365,10 +541,9 @@ const QuestionBank = ({ onLogout }) => {
 
             {/* Question By Category Section */}
             <div style={{
-              backgroundColor: 'white',
-              borderRadius: '16px',
+              backgroundColor: 'transparent',
               padding: '2rem',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+              boxShadow: 'none'
             }}>
               <div style={{
                 display: 'flex',
@@ -423,84 +598,291 @@ const QuestionBank = ({ onLogout }) => {
                 flexDirection: 'column',
                 gap: '1rem'
               }}>
-                {questionCategories.map((category) => (
-                  <div
-                    key={category.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '1.5rem',
-                      backgroundColor: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '1rem',
-                      flex: 1
-                    }}>
-                      <div style={{
-                        width: '48px',
-                        height: '48px',
-                        backgroundColor: category.color,
-                        borderRadius: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '1.5rem'
-                      }}>
-                        {category.icon}
-                      </div>
-                      
-                      <div style={{ flex: 1 }}>
-                        <h3 style={{
-                          fontSize: '1.125rem',
-                          fontWeight: '600',
-                          color: '#374151',
-                          margin: 0,
-                          marginBottom: '0.25rem'
+                {filteredCategories.map((category) => {
+                  const isExpanded = expandedCategory === category.id;
+                  const answeredCount = getAnsweredCount(category.id);
+                  
+                  return (
+                    <div key={category.id} style={{ width: '100%' }}>
+                      <div
+                        onClick={() => handleCategoryClick(category.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.75rem',
+                          backgroundColor: '#f8fafc',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s',
+                          transform: isExpanded ? 'scale(1.02)' : 'scale(1)'
+                        }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '1rem',
+                          flex: 1
                         }}>
-                          {category.title}
-                        </h3>
-                        <p style={{
-                          color: '#6b7280',
-                          fontSize: '0.875rem',
-                          margin: 0
+                          <div style={{
+                            width: '48px',
+                            height: '48px',
+                            backgroundColor: category.color,
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '1.5rem',
+                            position: 'relative'
+                          }}>
+                            {category.icon}
+                            {answeredCount > 0 && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '-5px',
+                                right: '-5px',
+                                backgroundColor: '#10b981',
+                                color: 'white',
+                                borderRadius: '50%',
+                                width: '20px',
+                                height: '20px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.75rem',
+                                fontWeight: 'bold'
+                              }}>
+                                {answeredCount}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div style={{ flex: 1 }}>
+                            <h3 style={{
+                              fontSize: '1.125rem',
+                              fontWeight: '600',
+                              color: '#374151',
+                              margin: 0,
+                              marginBottom: '0.25rem'
+                            }}>
+                              {category.title}
+                            </h3>
+                            <p style={{
+                              color: '#6b7280',
+                              fontSize: '0.875rem',
+                              margin: 0
+                            }}>
+                              {category.description}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '1rem'
                         }}>
-                          {category.description}
-                        </p>
+                          <span style={{
+                            padding: '0.25rem 0.75rem',
+                            backgroundColor: category.color,
+                            color: 'white',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            fontWeight: '600'
+                          }}>
+                            {category.count}
+                          </span>
+                          {isExpanded ? <ChevronDown size={20} color="#9ca3af" /> : <ChevronRight size={20} color="#9ca3af" />}
+                        </div>
                       </div>
+
+                      {/* Expanded Questions */}
+                      {isExpanded && (
+                        <div style={{
+                          marginTop: '0.5rem',
+                          backgroundColor: 'white',
+                          borderRadius: '12px',
+                          padding: '1.5rem',
+                          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                          animation: 'slideDown 0.3s ease-out'
+                        }}>
+                          {loading[category.id] ? (
+                            <div style={{ textAlign: 'center', padding: '2rem' }}>
+                              <Loader size={32} color={category.color} style={{ animation: 'spin 1s linear infinite' }} />
+                              <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading questions...</p>
+                            </div>
+                          ) : (
+                            categoryData[category.id]?.questions?.map((question, idx) => {
+                              const answerData = userAnswers[category.id]?.[idx];
+                              const isAnswered = answerData?.answeredAt;
+                              const isAnalyzing = analyzing[`${category.id}_${idx}`];
+                              
+                              return (
+                                <div key={idx} style={{
+                                  marginBottom: '1.5rem',
+                                  padding: '1rem',
+                                  backgroundColor: '#f9fafb',
+                                  borderRadius: '8px',
+                                  borderLeft: `4px solid ${category.color}`
+                                }}>
+                                  <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    marginBottom: '0.75rem'
+                                  }}>
+                                    <h4 style={{
+                                      margin: 0,
+                                      fontSize: '1rem',
+                                      color: '#374151',
+                                      flex: 1
+                                    }}>
+                                      {idx + 1}. {question}
+                                    </h4>
+                                    {isAnswered && (
+                                      <CheckCircle size={20} color="#10b981" />
+                                    )}
+                                  </div>
+                                  
+                                  <textarea
+                                    value={answerData?.answer || ''}
+                                    onChange={(e) => handleAnswerChange(category.id, idx, e.target.value)}
+                                    disabled={isAnswered}
+                                    placeholder="Type your answer here..."
+                                    style={{
+                                      width: '100%',
+                                      minHeight: '100px',
+                                      padding: '0.75rem',
+                                      border: '1px solid #d1d5db',
+                                      borderRadius: '8px',
+                                      fontSize: '0.875rem',
+                                      resize: 'vertical',
+                                      backgroundColor: isAnswered ? '#f3f4f6' : 'white',
+                                      cursor: isAnswered ? 'not-allowed' : 'text'
+                                    }}
+                                  />
+                                  
+                                  <div style={{
+                                    display: 'flex',
+                                    gap: '0.5rem',
+                                    marginTop: '0.75rem'
+                                  }}>
+                                    {!isAnswered ? (
+                                      <button
+                                        onClick={() => handleSubmitAnswer(category.id, idx, question)}
+                                        disabled={!answerData?.answer?.trim() || isAnalyzing}
+                                        style={{
+                                          padding: '0.5rem 1rem',
+                                          backgroundColor: category.color,
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '8px',
+                                          cursor: answerData?.answer?.trim() ? 'pointer' : 'not-allowed',
+                                          opacity: answerData?.answer?.trim() ? 1 : 0.5,
+                                          fontSize: '0.875rem',
+                                          fontWeight: '600'
+                                        }}
+                                      >
+                                        {isAnalyzing ? 'Analyzing...' : 'Submit Answer'}
+                                      </button>
+                                    ) : (
+                                      answerData.analyzed && (
+                                        <button
+                                          onClick={() => handleViewAnalysis(category.id, idx, question)}
+                                          style={{
+                                            padding: '0.5rem 1rem',
+                                            backgroundColor: '#10b981',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: '0.875rem',
+                                            fontWeight: '600',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem'
+                                          }}
+                                        >
+                                          <Eye size={16} />
+                                          View AI Analysis
+                                        </button>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                          
+                          {/* Summary Analysis Button */}
+                          {answeredCount >= 5 && (
+                            <div style={{
+                              marginTop: '1.5rem',
+                              padding: '1rem',
+                              backgroundColor: '#f0f9ff',
+                              borderRadius: '8px',
+                              border: '2px solid #06b6d4'
+                            }}>
+                              <button
+                                onClick={() => handleViewSummaryAnalysis(category.id)}
+                                disabled={analyzing[`${category.id}_summary`]}
+                                style={{
+                                  width: '100%',
+                                  padding: '0.75rem 1.5rem',
+                                  backgroundColor: '#06b6d4',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '8px',
+                                  cursor: analyzing[`${category.id}_summary`] ? 'not-allowed' : 'pointer',
+                                  fontSize: '1rem',
+                                  fontWeight: '600',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '0.5rem'
+                                }}
+                              >
+                                <Eye size={18} />
+                                {analyzing[`${category.id}_summary`] ? 'Generating Summary...' : 'View Complete Summary Analysis'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '1rem'
-                    }}>
-                      <span style={{
-                        padding: '0.25rem 0.75rem',
-                        backgroundColor: category.color,
-                        color: 'white',
-                        borderRadius: '12px',
-                        fontSize: '0.75rem',
-                        fontWeight: '600'
-                      }}>
-                        {category.count}
-                      </span>
-                      <ChevronRight size={20} color="#9ca3af" />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
         </div>
       </div>
+      
+      <AnalysisModal
+        isOpen={modalData.isOpen}
+        onClose={() => setModalData({ ...modalData, isOpen: false })}
+        analysis={modalData.analysis}
+        category={modalData.category}
+        question={modalData.question}
+      />
+      
+      <style>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };

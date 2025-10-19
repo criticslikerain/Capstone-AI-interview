@@ -1,41 +1,26 @@
 import { NextResponse } from 'next/server';
-import { getPasswordResetToken, updateUser, markTokenAsUsed } from '../../../../lib/firebase.js';
-import bcrypt from 'bcryptjs';
+import { getUserByEmail, updateUserPassword } from '../../../../lib/firebase.js';
 
 export async function POST(request) {
   try {
-    const { token, password } = await request.json();
+    const { email, newPassword } = await request.json();
 
-    if (!token || !password) {
-      return NextResponse.json({ error: 'Token and password are required' }, { status: 400 });
+    if (!email || !newPassword) {
+      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: 'Password must be at least 6 characters long' }, { status: 400 });
+    const user = await getUserByEmail(email);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    //=================================================
-    // tig find valid reset token 
-    // Para ma-verify kung tinuod ang reset request
-    //=================================================
-    const resetToken = await getPasswordResetToken(token);
+    await updateUserPassword(user.id, newPassword);
 
-    if (!resetToken) {
-      return NextResponse.json({ error: 'Invalid or expired reset token' }, { status: 400 });
-    }
-    const hashedPassword = await bcrypt.hash(password, 12);
-        //=================================================
-    // i-update ang password sa user
-    // Para magamit na niya ang bag-o nga password
-    //=================================================
-    await updateUser(resetToken.user_id, {
-      password_hash: hashedPassword
+    return NextResponse.json({ 
+      success: true,
+      message: 'Password reset successfully' 
     });
-    //=================================================
-    // i-mark ang token as used kay gi gamit rata :')
-    //=================================================
-    await markTokenAsUsed(resetToken.id);
-    return NextResponse.json({ message: 'Password reset successfully' });
 
   } catch (error) {
     console.error('Reset password error:', error);

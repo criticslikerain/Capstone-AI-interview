@@ -1,14 +1,19 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '../contexts/AuthContext'
+import { canStartInterview, incrementInterviewCount } from '../../lib/subscriptionLimits'
 
 export default function LiveAIInterview() {
   const router = useRouter()
+  const { user } = useAuth()
   const [selectedInterviewType, setSelectedInterviewType] = useState('behavioral')
   const [selectedDifficulty, setSelectedDifficulty] = useState('intermediate')
   const [voiceRecording, setVoiceRecording] = useState(true)
   const [videoRecording, setVideoRecording] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState('')
+  const [usageInfo, setUsageInfo] = useState(null)
+  const [showLimitModal, setShowLimitModal] = useState(false)
 
   useEffect(() => {
     const category = sessionStorage.getItem('interviewCategory')
@@ -17,7 +22,40 @@ export default function LiveAIInterview() {
     } else {
       router.push('/live-ai-interview-content-page')
     }
-  }, [])
+    
+    if (user) {
+      checkUsage()
+    }
+  }, [user])
+
+  const checkUsage = async () => {
+    if (!user) return
+    const usage = await canStartInterview(user.uid)
+    setUsageInfo(usage)
+  }
+
+  const handleStartInterview = async () => {
+    if (!user) return
+    
+    const canStart = await canStartInterview(user.uid)
+    
+    if (!canStart.allowed) {
+      setShowLimitModal(true)
+      return
+    }
+    
+    await incrementInterviewCount(user.uid)
+    
+    sessionStorage.setItem('interviewConfig', JSON.stringify({
+      category: selectedCategory,
+      interviewType: selectedInterviewType,
+      difficulty: selectedDifficulty,
+      voiceRecording,
+      videoRecording
+    }))
+    
+    router.push('/voice-interview')
+  }
 
   return (
     <div style={{
@@ -326,18 +364,31 @@ export default function LiveAIInterview() {
             </div>
           </div>
 
+          {/* Usage Info */}
+          {usageInfo && usageInfo.remaining !== -1 && (
+            <div style={{
+              padding: '0.75rem 1rem',
+              backgroundColor: usageInfo.remaining > 0 ? '#f0fdf4' : '#fef2f2',
+              border: `1px solid ${usageInfo.remaining > 0 ? '#86efac' : '#fca5a5'}`,
+              borderRadius: '8px',
+              marginBottom: '1rem',
+              textAlign: 'center'
+            }}>
+              <span style={{
+                fontSize: '0.875rem',
+                color: usageInfo.remaining > 0 ? '#166534' : '#991b1b',
+                fontWeight: '500'
+              }}>
+                {usageInfo.remaining > 0 
+                  ? `${usageInfo.remaining} interview${usageInfo.remaining !== 1 ? 's' : ''} remaining this month`
+                  : 'Monthly interview limit reached'}
+              </span>
+            </div>
+          )}
+
           {/* Start Interview Button */}
           <button
-            onClick={() => {
-              sessionStorage.setItem('interviewConfig', JSON.stringify({
-                category: selectedCategory,
-                interviewType: selectedInterviewType,
-                difficulty: selectedDifficulty,
-                voiceRecording,
-                videoRecording
-              }));
-              router.push('/voice-interview');
-            }}
+            onClick={handleStartInterview}
             style={{
               width: '100%',
               padding: '1rem 2rem',
@@ -364,6 +415,78 @@ export default function LiveAIInterview() {
           </button>
         </div>
       </div>
+
+      {/* Limit Reached Modal */}
+      {showLimitModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '2rem',
+            maxWidth: '400px',
+            width: '90%'
+          }}>
+            <h3 style={{
+              fontSize: '1.25rem',
+              fontWeight: 'bold',
+              color: '#1f2937',
+              marginBottom: '1rem'
+            }}>
+              Monthly Limit Reached
+            </h3>
+            <p style={{
+              color: '#6b7280',
+              marginBottom: '1.5rem',
+              lineHeight: '1.5'
+            }}>
+              You've used all {usageInfo?.limit} interviews for this month. Upgrade to Premium or Professional for unlimited interviews!
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={() => router.push('/pricing')}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  backgroundColor: '#06b6d4',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Upgrade Plan
+              </button>
+              <button
+                onClick={() => setShowLimitModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  backgroundColor: 'white',
+                  color: '#6b7280',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         @media (max-width: 1024px) {

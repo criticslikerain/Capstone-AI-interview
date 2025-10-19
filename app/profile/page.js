@@ -9,14 +9,18 @@ import {
   CreditCard,
   User,
   Settings,
-  Mail
+  Mail,
+  LogOut
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import ChatBubbleLogo from '../../components/ChatBubbleLogo'
+import { getInterviewSessions, getUserSubscription } from '../../lib/firebase'
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, userProfile, getInitials, getFullName, logout, loading } = useAuth()
+  const { user, userProfile, getInitials, getFullName, logout, loading, refreshUserProfile } = useAuth()
+  const [localUserProfile, setLocalUserProfile] = useState(null)
+  const [userId, setUserId] = useState(null)
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -26,23 +30,117 @@ export default function ProfilePage() {
   })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [interviewStats, setInterviewStats] = useState({
+    totalInterviews: 0,
+    bestRating: 0,
+    averageRating: 0
+  })
+  const [loadingStats, setLoadingStats] = useState(true)
+  const [subscription, setSubscription] = useState({ plan: 'free', status: 'active' })
+  
+  const currentProfile = userProfile || localUserProfile
 
   useEffect(() => {
-    if (!user) {
-      router.push('/login')
-      return
+    const checkAuth = async () => {
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1]
+      
+      // If no Firebase user and no JWT token, redirect to login
+      if (!user && !token) {
+        router.push('/login')
+        return
+      }
+      
+      // If we have Firebase user, use Firebase data
+      if (user && userProfile) {
+        setUserId(user.uid)
+        setFormData({
+          firstName: userProfile.first_name || '',
+          lastName: userProfile.last_name || '',
+          email: userProfile.email || user.email || '',
+          phoneNumber: userProfile.phone_number || '',
+          address: userProfile.address || ''
+        })
+        // Fetch interview stats and subscription
+        fetchInterviewStats(user.uid)
+        fetchSubscription(user.uid)
+      }
+      // If we have JWT token but no Firebase user, fetch from API
+      else if (token && !user) {
+        try {
+          const res = await fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+          const data = await res.json()
+          if (data.user) {
+            setLocalUserProfile(data.user)
+            setUserId(data.user.id)
+            setFormData({
+              firstName: data.user.first_name || '',
+              lastName: data.user.last_name || '',
+              email: data.user.email || '',
+              phoneNumber: data.user.phone_number || '',
+              address: data.user.address || ''
+            })
+            // Fetch interview stats and subscription
+            fetchInterviewStats(data.user.id)
+            fetchSubscription(data.user.id)
+          }
+        } catch (err) {
+          console.error('Error fetching user:', err)
+        }
+      }
     }
     
-    if (userProfile) {
-      setFormData({
-        firstName: userProfile.first_name || '',
-        lastName: userProfile.last_name || '',
-        email: userProfile.email || user.email || '',
-        phoneNumber: userProfile.phone_number || '',
-        address: userProfile.address || ''
-      })
-    }
+    checkAuth()
   }, [user, userProfile, router])
+
+  const fetchSubscription = async (uid) => {
+    try {
+      const sub = await getUserSubscription(uid)
+      setSubscription(sub)
+    } catch (error) {
+      console.error('Error fetching subscription:', error)
+    }
+  }
+
+  const fetchInterviewStats = async (uid) => {
+    try {
+      setLoadingStats(true)
+      const sessions = await getInterviewSessions(uid)
+      
+      if (sessions.length === 0) {
+        setInterviewStats({
+          totalInterviews: 0,
+          bestRating: 0,
+          averageRating: 0
+        })
+      } else {
+        // Calculate stats
+        const totalInterviews = sessions.length
+        const scores = sessions.map(s => s.percentage_scored || 0)
+        const bestRating = Math.max(...scores)
+        const averageRating = scores.reduce((a, b) => a + b, 0) / scores.length
+        
+        setInterviewStats({
+          totalInterviews,
+          bestRating: Math.round(bestRating * 10) / 10, // Round to 1 decimal
+          averageRating: Math.round(averageRating * 10) / 10 // Round to 1 decimal
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching interview stats:', error)
+      setInterviewStats({
+        totalInterviews: 0,
+        bestRating: 0,
+        averageRating: 0
+      })
+    } finally {
+      setLoadingStats(false)
+    }
+  }
 
   const handleNavigation = (itemId) => {
     switch (itemId) {
@@ -85,9 +183,55 @@ export default function ProfilePage() {
     setMessage('')
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setMessage('Profile updated successfully!')
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('token='))
+        ?.split('=')[1]
+      
+      if (!userId) {
+        setMessage('User ID not found. Please try logging in again.')
+        setSaving(false)
+        return
+      }
+      
+      const res = await fetch('/api/user/update-profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: userId,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone_number: formData.phoneNumber,
+          address: formData.address
+        })
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok) {
+        setMessage('Profile updated successfully!')
+        // Update local state
+        if (localUserProfile) {
+          setLocalUserProfile({
+            ...localUserProfile,
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            phone_number: formData.phoneNumber,
+            address: formData.address
+          })
+        }
+        // Refresh Firebase user profile
+        if (refreshUserProfile) {
+          await refreshUserProfile()
+        }
+      } else {
+        setMessage(data.error || 'Failed to update profile. Please try again.')
+      }
     } catch (error) {
+      console.error('Error updating profile:', error)
       setMessage('Failed to update profile. Please try again.')
     } finally {
       setSaving(false)
@@ -248,14 +392,17 @@ export default function ProfilePage() {
                 borderRadius: '8px',
                 cursor: 'pointer',
                 fontSize: '1rem',
-                fontWeight: '500'
+                fontWeight: '500',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.backgroundColor = '#b91c1c'
+              }}
+              onMouseOut={(e) => {
+                e.target.style.backgroundColor = '#dc2626'
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16,17 21,12 16,7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
+              <LogOut size={20} />
               Logout
             </button>
           </div>
@@ -318,18 +465,41 @@ export default function ProfilePage() {
 
               <div style={{
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
                 gap: '0.5rem',
                 marginBottom: '2rem'
               }}>
-                <Mail size={16} />
-                <span style={{
-                  fontSize: '1rem',
-                  color: 'rgba(255, 255, 255, 0.9)'
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
                 }}>
-                  {userProfile?.email || user?.email || 'No email'}
-                </span>
+                  <Mail size={16} />
+                  <span style={{
+                    fontSize: '1rem',
+                    color: 'rgba(255, 255, 255, 0.9)'
+                  }}>
+                    {currentProfile?.email || user?.email || 'No email'}
+                  </span>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: subscription.plan === 'free' ? 'rgba(34, 211, 238, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                  borderRadius: '20px',
+                  border: `1px solid ${subscription.plan === 'free' ? '#22d3ee' : '#fbbf24'}`
+                }}>
+                  <span style={{
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: 'white'
+                  }}>
+                    Current Plan: {subscription.plan === 'free' ? 'Free' : subscription.plan === 'premium' ? 'Premium Monthly' : 'Professional Yearly'}
+                  </span>
+                </div>
               </div>
 
               <div style={{
@@ -345,7 +515,7 @@ export default function ProfilePage() {
                     fontWeight: 'bold',
                     marginBottom: '0.25rem'
                   }}>
-                    3
+                    {loadingStats ? '...' : interviewStats.totalInterviews}
                   </div>
                   <div style={{
                     fontSize: '0.875rem',
@@ -361,7 +531,7 @@ export default function ProfilePage() {
                     fontWeight: 'bold',
                     marginBottom: '0.25rem'
                   }}>
-                    4
+                    {loadingStats ? '...' : interviewStats.bestRating}
                   </div>
                   <div style={{
                     fontSize: '0.875rem',
@@ -377,7 +547,7 @@ export default function ProfilePage() {
                     fontWeight: 'bold',
                     marginBottom: '0.25rem'
                   }}>
-                    4.3
+                    {loadingStats ? '...' : interviewStats.averageRating}
                   </div>
                   <div style={{
                     fontSize: '0.875rem',

@@ -206,6 +206,20 @@ export default function Home() {
           justify-content: center;
         }
 
+        .invisible-pricing-button {
+          position: absolute;
+          bottom: 0;
+          left: 45%;
+          width: 10%;
+          height: 10%;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          z-index: 3;
+          opacity: 0; /* Make it invisible */
+          margin-bottom: 20px; /* Add some margin from the bottom */
+        }
+
         @media (max-width: 768px) {
           .button-row {
             left: 8%;
@@ -270,6 +284,15 @@ export default function Home() {
             Pricing Details
           </button>
         </div>
+
+        {/* Invisible Pricing Button */}
+        <button 
+          className="invisible-pricing-button"
+          onClick={handlePricing}
+          aria-label="Navigate to pricing page"
+        >
+          &nbsp;
+        </button>
 
         {/* Copyright Section */}
         <div className="copyright">

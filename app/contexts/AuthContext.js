@@ -58,13 +58,27 @@ export const AuthProvider = ({ children }) => {
     return `${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim();
   };
 
+  const refreshUserProfile = async () => {
+    if (user) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          setUserProfile(userDoc.data());
+        }
+      } catch (error) {
+        console.error('Error refreshing user profile:', error);
+      }
+    }
+  };
+
   const value = {
     user,
     userProfile,
     loading,
     logout,
     getInitials,
-    getFullName
+    getFullName,
+    refreshUserProfile
   };
 
   return (

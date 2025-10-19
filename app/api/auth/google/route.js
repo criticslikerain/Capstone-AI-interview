@@ -4,6 +4,8 @@ import { db } from '../../../../lib/firebase';
 import { collection, query as firestoreQuery, where, getDocs, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { sign } from 'jsonwebtoken';
 import crypto from 'crypto';
+import { signInWithCustomToken, getAuth } from 'firebase/auth';
+import { initializeApp, getApps } from 'firebase/app';
 
 
 //****************************************************************************
@@ -100,7 +102,9 @@ export async function POST(request) {
       { 
         userId: userId, 
         email: email, 
-        userType: userData.user_type 
+        userType: userData.user_type,
+        firstName: userData.first_name,
+        lastName: userData.last_name
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
@@ -119,12 +123,13 @@ export async function POST(request) {
       redirectTo: userData.user_type === 'admin' ? '/admin' : '/user-dashboard'
     });
 
-    // Set HTTP-only cookie with the token
+    // Set cookie with the token
     response.cookies.set('token', token, {
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60,
+      path: '/'
     });
 
     return response;

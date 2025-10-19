@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AlertTriangle,
@@ -11,10 +11,203 @@ import {
   HelpCircle
 } from 'lucide-react'
 import Sidebar from '../../components/Sidebar'
+import { useAuth } from '../contexts/AuthContext'
+import { getInterviewSessions } from '../../lib/firebase'
 
 export default function WeaknessOverview() {
   const router = useRouter()
   const [selectedCategory, setSelectedCategory] = useState('Problem-solving')
+  const [loading, setLoading] = useState(true)
+  const [weaknessData, setWeaknessData] = useState(null)
+  const [categoryDetails, setCategoryDetails] = useState({})
+  const [expandedCard, setExpandedCard] = useState(null)
+  const [toast, setToast] = useState({ show: false, message: '' })
+  const { user } = useAuth()
+
+  useEffect(() => {
+    if (user) {
+      loadWeaknessData()
+    }
+  }, [user])
+
+  const loadWeaknessData = async () => {
+    try {
+      const interviews = await getInterviewSessions(user.uid)
+      
+      if (interviews.length === 0) {
+        setWeaknessData(null)
+        setLoading(false)
+        return
+      }
+
+      // Analyze weaknesses across all interviews
+      const allImprovements = interviews.flatMap(i => i.improvements || [])
+      const improvementCounts = {}
+      
+      allImprovements.forEach(improvement => {
+        const normalized = improvement.toLowerCase().trim()
+        improvementCounts[normalized] = (improvementCounts[normalized] || 0) + 1
+      })
+
+      // Find the most common weakness
+      const topWeakness = Object.entries(improvementCounts)
+        .sort((a, b) => b[1] - a[1])[0]
+
+      if (!topWeakness) {
+        setWeaknessData(null)
+        setLoading(false)
+        return
+      }
+
+      const [weaknessName, count] = topWeakness
+      
+      const relevantInterviews = interviews.filter(i => 
+        i.improvements?.some(imp => imp.toLowerCase().trim() === weaknessName)
+      )
+
+      // Extract questions from conversations
+      const questions = relevantInterviews
+        .flatMap(i => {
+          if (!i.conversation) return []
+          return i.conversation
+            .filter(msg => msg.type === 'ai' && msg.text.includes('?'))
+            .map(msg => msg.text)
+        })
+        .slice(0, 2)
+
+      // Calculate category distribution
+      const categoryCount = { behavioral: 0, problemSolving: 0, situational: 0 }
+      relevantInterviews.forEach(i => {
+        const type = i.interview_type?.toLowerCase() || i.interviewType?.toLowerCase() || 'behavioral'
+        if (type.includes('behavioral')) categoryCount.behavioral++
+        else if (type.includes('problem') || type.includes('technical')) categoryCount.problemSolving++
+        else if (type.includes('situational')) categoryCount.situational++
+        else categoryCount.behavioral++
+      })
+
+      const total = Object.values(categoryCount).reduce((a, b) => a + b, 0)
+      const categories = {
+        behavioral: Math.round((categoryCount.behavioral / total) * 100),
+        problemSolving: Math.round((categoryCount.problemSolving / total) * 100),
+        situational: Math.round((categoryCount.situational / total) * 100)
+      }
+
+      // Calculate detailed analytics per category
+      const details = {}
+      const categoryTypes = [
+        { id: 'behavioral', name: 'Behavioral' },
+        { id: 'problem-solving', name: 'Problem-Solving' },
+        { id: 'situational', name: 'Situational' }
+      ]
+
+      categoryTypes.forEach(cat => {
+        const catInterviews = interviews.filter(i => {
+          const type = i.interview_type?.toLowerCase() || i.interviewType?.toLowerCase() || 'behavioral'
+          if (cat.id === 'behavioral') return type.includes('behavioral')
+          if (cat.id === 'problem-solving') return type.includes('problem') || type.includes('technical')
+          if (cat.id === 'situational') return type.includes('situational')
+          return false
+        })
+
+        if (catInterviews.length > 0) {
+          const avgScore = catInterviews.reduce((sum, i) => sum + (i.percentage_scored || 0), 0) / catInterviews.length
+          const topImprovements = catInterviews
+            .flatMap(i => i.improvements || [])
+            .slice(0, 3)
+
+          details[cat.id] = {
+            count: catInterviews.length,
+            avgScore: Math.round(avgScore),
+            improvements: [...new Set(topImprovements)],
+            examples: catInterviews.slice(0, 2).map(i => ({
+              topic: i.topic || 'General Interview',
+              score: i.percentage_scored || 0,
+              date: i.created_at
+            }))
+          }
+        }
+      })
+
+      setCategoryDetails(details)
+      setWeaknessData({
+        keyWeakness: {
+          name: weaknessName.charAt(0).toUpperCase() + weaknessName.slice(1),
+          identifiedIn: `${count} out of ${interviews.length} interviews`,
+          questions: questions.length > 0 ? questions : [
+            "Questions from your interview sessions",
+            "will be displayed here as you complete more interviews"
+          ],
+          categories
+        }
+      })
+      
+    } catch (error) {
+      console.error('Error loading weakness data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getPracticeQuestions = (category) => {
+    const questions = {
+      'Behavioral': [
+        "Tell me about a time when you had to work with a difficult team member. How did you handle it?",
+        "Describe a situation where you failed to meet a deadline. What did you learn?",
+        "Give me an example of when you had to adapt to a significant change at work.",
+        "Tell me about a time you received constructive criticism. How did you respond?"
+      ],
+      'Problem-solving': [
+        "Walk me through how you would approach solving a complex technical problem with limited resources.",
+        "Describe a time when you had to make a decision without having all the information you needed.",
+        "How would you prioritize multiple urgent tasks with competing deadlines?",
+        "Tell me about a creative solution you developed to solve a challenging problem."
+      ],
+      'Situational': [
+        "If you noticed a colleague making a serious mistake, what would you do?",
+        "How would you handle a situation where your manager asks you to do something unethical?",
+        "What would you do if you disagreed with your team's approach to a project?",
+        "If you were assigned a project outside your expertise, how would you approach it?"
+      ]
+    }
+    return questions[category] || questions['Behavioral']
+  }
+
+  const getCategoryTips = (category) => {
+    const tips = {
+      'Behavioral': {
+        title: 'STAR Method',
+        description: 'Structure your answers using Situation, Task, Action, Result. Be specific with examples and quantify your achievements when possible.'
+      },
+      'Problem-solving': {
+        title: 'Think Out Loud',
+        description: 'Walk through your thought process step-by-step. Show how you break down complex problems, consider alternatives, and make data-driven decisions.'
+      },
+      'Situational': {
+        title: 'Show Your Values',
+        description: 'Demonstrate your judgment, ethics, and decision-making process. Explain the reasoning behind your choices and consider multiple perspectives.'
+      }
+    }
+    return tips[category] || tips['Behavioral']
+  }
+
+  const getRandomQuestion = () => {
+    const questions = getPracticeQuestions(selectedCategory)
+    return questions[Math.floor(Math.random() * questions.length)]
+  }
+
+  const [currentPracticeQuestion, setCurrentPracticeQuestion] = useState('')
+
+  useEffect(() => {
+    if (weaknessData) {
+      setCurrentPracticeQuestion(getRandomQuestion())
+    }
+  }, [selectedCategory, weaknessData])
+
+  const formatDate = (date) => {
+    if (!date) return 'N/A'
+    const d = date.toDate ? date.toDate() : new Date(date)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
 
   const questionCategories = [
     {
@@ -58,6 +251,94 @@ export default function WeaknessOverview() {
     { id: 'problem-solving', label: 'Problem-solving', active: true },
     { id: 'situational', label: 'Situational', active: false }
   ]
+
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        height: '100vh',
+        fontFamily: 'Inter, sans-serif',
+        overflow: 'hidden'
+      }}>
+        <Sidebar activeItem="weakness-overview" />
+        <div style={{
+          marginLeft: '280px',
+          width: 'calc(100vw - 280px)',
+          height: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f9fafb'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: '60px',
+              height: '60px',
+              border: '6px solid #e5e7eb',
+              borderTop: '6px solid #f59e0b',
+              borderRadius: '50%',
+              margin: '0 auto 1rem',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <p style={{ color: '#6b7280', fontSize: '1rem' }}>Analyzing your weaknesses...</p>
+          </div>
+          <style jsx>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      </div>
+    )
+  }
+
+  if (!weaknessData) {
+    return (
+      <div style={{
+        display: 'flex',
+        height: '100vh',
+        fontFamily: 'Inter, sans-serif',
+        overflow: 'hidden'
+      }}>
+        <Sidebar activeItem="weakness-overview" />
+        <div style={{
+          marginLeft: '280px',
+          width: 'calc(100vw - 280px)',
+          height: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f9fafb'
+        }}>
+          <div style={{ textAlign: 'center', maxWidth: '500px', padding: '2rem' }}>
+            <AlertTriangle size={64} color="#f59e0b" style={{ margin: '0 auto 1rem' }} />
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '0.5rem' }}>
+              No Interview Data Yet
+            </h2>
+            <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
+              Complete some AI interviews to see your areas for improvement here. Your performance data will help identify opportunities for growth across different question categories.
+            </p>
+            <button
+              onClick={() => router.push('/live-ai-interview')}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Start Your First Interview
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{
@@ -194,24 +475,24 @@ export default function WeaknessOverview() {
                   <div style={{
                     width: '48px',
                     height: '48px',
-                    backgroundColor: '#1e293b',
+                    backgroundColor: '#ef4444',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: '1rem'
                   }}>
-                    <span style={{ color: 'white', fontSize: '1.5rem', fontWeight: 'bold' }}>?</span>
+                    <AlertTriangle size={24} color="white" />
                   </div>
 
                   <h3 style={{
                     fontSize: '1.125rem',
                     fontWeight: '600',
-                    color: '#06b6d4',
+                    color: '#ef4444',
                     margin: 0,
                     marginBottom: '0.5rem'
                   }}>
-                    Lack of Clarity in Responses
+                    {weaknessData.keyWeakness.name}
                   </h3>
 
                   <p style={{
@@ -219,13 +500,13 @@ export default function WeaknessOverview() {
                     fontSize: '0.875rem',
                     margin: 0
                   }}>
-                    Identified as a weakness in 4 out of 5 interviews.
+                    Identified as a weakness in {weaknessData.keyWeakness.identifiedIn}.
                   </p>
                 </div>
 
                 <div style={{
-                  backgroundColor: '#f0f9ff',
-                  border: '2px solid #0ea5e9',
+                  backgroundColor: '#fef3c7',
+                  border: '2px solid #f59e0b',
                   borderRadius: '12px',
                   padding: '1.5rem',
                   position: 'relative'
@@ -236,11 +517,11 @@ export default function WeaknessOverview() {
                     gap: '0.5rem',
                     marginBottom: '1rem'
                   }}>
-                    <HelpCircle size={20} color="#0ea5e9" />
+                    <HelpCircle size={20} color="#f59e0b" />
                     <h3 style={{
                       fontSize: '1.125rem',
                       fontWeight: '600',
-                      color: '#0ea5e9',
+                      color: '#f59e0b',
                       margin: 0
                     }}>
                       Questions Where This Weakness Was Highlighted
@@ -248,8 +529,11 @@ export default function WeaknessOverview() {
                   </div>
 
                   <div style={{ fontSize: '0.875rem', color: '#374151' }}>
-                    <p style={{ margin: '0 0 0.5rem 0' }}>• Tell me about a time you had to handle multiple priorities at once.</p>
-                    <p style={{ margin: '0' }}>• How would you handle a disagreement with a team member?</p>
+                    {weaknessData.keyWeakness.questions.map((question, idx) => (
+                      <p key={idx} style={{ margin: idx === 0 ? '0 0 0.5rem 0' : '0' }}>
+                        • {question}
+                      </p>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -282,30 +566,30 @@ export default function WeaknessOverview() {
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                       <span style={{ fontSize: '0.875rem', color: '#374151' }}>Behavioral</span>
-                      <span style={{ fontSize: '0.875rem', color: '#374151' }}>60%</span>
+                      <span style={{ fontSize: '0.875rem', color: '#374151' }}>{weaknessData.keyWeakness.categories.behavioral}%</span>
                     </div>
                     <div style={{ width: '100%', height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px' }}>
-                      <div style={{ width: '60%', height: '100%', backgroundColor: '#3b82f6', borderRadius: '4px' }}></div>
+                      <div style={{ width: `${weaknessData.keyWeakness.categories.behavioral}%`, height: '100%', backgroundColor: '#3b82f6', borderRadius: '4px' }}></div>
                     </div>
                   </div>
 
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                       <span style={{ fontSize: '0.875rem', color: '#374151' }}>Problem-Solving</span>
-                      <span style={{ fontSize: '0.875rem', color: '#374151' }}>30%</span>
+                      <span style={{ fontSize: '0.875rem', color: '#374151' }}>{weaknessData.keyWeakness.categories.problemSolving}%</span>
                     </div>
                     <div style={{ width: '100%', height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px' }}>
-                      <div style={{ width: '30%', height: '100%', backgroundColor: '#f59e0b', borderRadius: '4px' }}></div>
+                      <div style={{ width: `${weaknessData.keyWeakness.categories.problemSolving}%`, height: '100%', backgroundColor: '#f59e0b', borderRadius: '4px' }}></div>
                     </div>
                   </div>
 
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                       <span style={{ fontSize: '0.875rem', color: '#374151' }}>Situational</span>
-                      <span style={{ fontSize: '0.875rem', color: '#374151' }}>10%</span>
+                      <span style={{ fontSize: '0.875rem', color: '#374151' }}>{weaknessData.keyWeakness.categories.situational}%</span>
                     </div>
                     <div style={{ width: '100%', height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px' }}>
-                      <div style={{ width: '10%', height: '100%', backgroundColor: '#10b981', borderRadius: '4px' }}></div>
+                      <div style={{ width: `${weaknessData.keyWeakness.categories.situational}%`, height: '100%', backgroundColor: '#10b981', borderRadius: '4px' }}></div>
                     </div>
                   </div>
                 </div>
@@ -353,43 +637,199 @@ export default function WeaknessOverview() {
                   <div
                     key={category.id}
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '1.5rem',
-                      backgroundColor: '#f8fafc',
-                      border: '1px solid #e2e8f0',
+                      backgroundColor: 'white',
                       borderRadius: '12px',
+                      padding: '1.5rem',
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
                       cursor: 'pointer',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      border: '1px solid #e5e7eb'
+                    }}
+                    onClick={() => setExpandedCard(expandedCard === category.id ? null : category.id)}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)'
+                      e.currentTarget.style.transform = 'translateY(-2px)'
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)'
+                      e.currentTarget.style.transform = 'translateY(0)'
                     }}
                   >
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '1rem'
+                      justifyContent: 'space-between'
                     }}>
                       <div style={{
-                        width: '48px',
-                        height: '48px',
-                        backgroundColor: category.color,
-                        borderRadius: '12px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '1.5rem'
+                        gap: '1rem'
                       }}>
-                        {category.icon}
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          backgroundColor: category.color,
+                          borderRadius: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.5rem'
+                        }}>
+                          {category.icon}
+                        </div>
+                        <span style={{
+                          fontSize: '1.125rem',
+                          fontWeight: '600',
+                          color: '#374151'
+                        }}>
+                          {category.title}
+                        </span>
                       </div>
-                      <span style={{
-                        fontSize: '1.125rem',
-                        fontWeight: '600',
-                        color: '#374151'
-                      }}>
-                        {category.title}
-                      </span>
+                      <ChevronRight 
+                        size={24} 
+                        color="#6b7280"
+                        style={{
+                          transform: expandedCard === category.id ? 'rotate(90deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.2s'
+                        }}
+                      />
                     </div>
-                    <ChevronRight size={20} color="#9ca3af" />
+
+                    {expandedCard === category.id && (
+                      <div style={{
+                        marginTop: '1.5rem',
+                        padding: '1.5rem',
+                        backgroundColor: '#f8fafc',
+                        borderRadius: '8px',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        {categoryDetails[category.id] ? (
+                          <div>
+                            <div style={{ marginBottom: '1.5rem' }}>
+                              <h4 style={{ 
+                                fontSize: '1rem', 
+                                fontWeight: '600', 
+                                color: '#1f2937', 
+                                marginBottom: '0.75rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                              }}>
+                                <BarChart3 size={18} color={category.color} />
+                                Performance Analytics
+                              </h4>
+                              <div style={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: '1fr 1fr', 
+                                gap: '1rem',
+                                marginBottom: '1rem'
+                              }}>
+                                <div style={{
+                                  backgroundColor: 'white',
+                                  padding: '1rem',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e5e7eb'
+                                }}>
+                                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+                                    Interviews Completed
+                                  </div>
+                                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: category.color }}>
+                                    {categoryDetails[category.id].count}
+                                  </div>
+                                </div>
+                                <div style={{
+                                  backgroundColor: 'white',
+                                  padding: '1rem',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e5e7eb'
+                                }}>
+                                  <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+                                    Average Score
+                                  </div>
+                                  <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: category.color }}>
+                                    {categoryDetails[category.id].avgScore}%
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {categoryDetails[category.id].improvements.length > 0 && (
+                              <div style={{ marginBottom: '1.5rem' }}>
+                                <h4 style={{ 
+                                  fontSize: '0.95rem', 
+                                  fontWeight: '600', 
+                                  color: '#1f2937', 
+                                  marginBottom: '0.5rem' 
+                                }}>
+                                  Areas for Improvement in This Category
+                                </h4>
+                                <ul style={{ 
+                                  margin: 0, 
+                                  paddingLeft: '1.2rem', 
+                                  color: '#374151',
+                                  fontSize: '0.9rem'
+                                }}>
+                                  {categoryDetails[category.id].improvements.map((improvement, idx) => (
+                                    <li key={idx} style={{ marginBottom: '0.25rem' }}>
+                                      {improvement}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {categoryDetails[category.id].examples.length > 0 && (
+                              <div>
+                                <h4 style={{ 
+                                  fontSize: '0.95rem', 
+                                  fontWeight: '600', 
+                                  color: '#1f2937', 
+                                  marginBottom: '0.5rem' 
+                                }}>
+                                  Recent Interview Examples
+                                </h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                  {categoryDetails[category.id].examples.map((example, idx) => (
+                                    <div 
+                                      key={idx}
+                                      style={{
+                                        backgroundColor: 'white',
+                                        padding: '0.75rem',
+                                        borderRadius: '6px',
+                                        border: '1px solid #e5e7eb',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                      }}
+                                    >
+                                      <div>
+                                        <div style={{ fontSize: '0.85rem', fontWeight: '500', color: '#374151' }}>
+                                          {example.topic}
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                                          {formatDate(example.date)}
+                                        </div>
+                                      </div>
+                                      <div style={{
+                                        fontSize: '0.9rem',
+                                        fontWeight: '600',
+                                        color: example.score >= 80 ? '#10b981' : example.score >= 70 ? '#f59e0b' : '#ef4444'
+                                      }}>
+                                        {Math.round(example.score)}%
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p style={{ color: '#6b7280', margin: 0, fontSize: '0.9rem' }}>
+                            No data available for {category.title.toLowerCase()} yet. Complete more interviews in this category to see detailed analytics.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -407,7 +847,7 @@ export default function WeaknessOverview() {
                 gap: '0.75rem',
                 marginBottom: '1rem'
               }}>
-                <Lightbulb size={24} color="#f59e0b" />
+                <Target size={24} color="#10b981" />
                 <h2 style={{
                   fontSize: '1.5rem',
                   fontWeight: 'bold',
@@ -423,77 +863,212 @@ export default function WeaknessOverview() {
                 marginBottom: '2rem',
                 fontSize: '0.875rem'
               }}>
-                This section is designed to help users actively work on their weaknesses by providing interactive exercises.
+                Practice targeted questions based on your identified weaknesses. Select a category to get personalized practice questions and tips.
               </p>
+
+              {/* Progress Overview */}
+              {categoryDetails && Object.keys(categoryDetails).length > 0 && (
+                <div style={{
+                  backgroundColor: '#f0fdf4',
+                  border: '1px solid #86efac',
+                  borderRadius: '12px',
+                  padding: '1.5rem',
+                  marginBottom: '2rem'
+                }}>
+                  <h3 style={{
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    color: '#166534',
+                    margin: '0 0 1rem 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}>
+                    <BarChart3 size={18} />
+                    Your Progress Summary
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                    {Object.entries(categoryDetails).map(([key, data]) => (
+                      <div key={key} style={{
+                        backgroundColor: 'white',
+                        padding: '1rem',
+                        borderRadius: '8px',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+                          {key === 'behavioral' ? 'Behavioral' : key === 'problem-solving' ? 'Problem-Solving' : 'Situational'}
+                        </div>
+                        <div style={{ 
+                          fontSize: '1.5rem', 
+                          fontWeight: 'bold', 
+                          color: data.avgScore >= 80 ? '#10b981' : data.avgScore >= 70 ? '#f59e0b' : '#ef4444'
+                        }}>
+                          {data.avgScore}%
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#9ca3af' }}>
+                          {data.count} interview{data.count !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div style={{ marginBottom: '2rem' }}>
                 <p style={{
                   fontSize: '0.875rem',
                   color: '#374151',
-                  marginBottom: '1rem'
+                  marginBottom: '1rem',
+                  fontWeight: '600'
                 }}>
-                  Select question category
+                  Select Practice Category
                 </p>
 
                 <div style={{
                   display: 'flex',
-                  gap: '0.5rem'
+                  gap: '0.5rem',
+                  flexWrap: 'wrap'
                 }}>
-                  {improvementCategories.map((category) => (
-                    <button
-                      key={category.id}
-                      onClick={() => setSelectedCategory(category.label)}
-                      style={{
-                        padding: '0.5rem 1rem',
-                        backgroundColor: category.active ? '#06b6d4' : 'white',
-                        color: category.active ? 'white' : '#6b7280',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '20px',
-                        fontSize: '0.875rem',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      {category.label}
-                    </button>
-                  ))}
+                  {improvementCategories.map((category) => {
+                    const isActive = selectedCategory === category.label
+                    const categoryData = categoryDetails[category.id]
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => setSelectedCategory(category.label)}
+                        style={{
+                          padding: '0.75rem 1.25rem',
+                          backgroundColor: isActive ? '#10b981' : 'white',
+                          color: isActive ? 'white' : '#6b7280',
+                          border: `2px solid ${isActive ? '#10b981' : '#d1d5db'}`,
+                          borderRadius: '8px',
+                          fontSize: '0.875rem',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        <span>{category.label}</span>
+                        {categoryData && (
+                          <span style={{ 
+                            fontSize: '0.7rem', 
+                            opacity: 0.8,
+                            fontWeight: 'normal'
+                          }}>
+                            Avg: {categoryData.avgScore}%
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
+              {/* Practice Question Card */}
               <div style={{
                 backgroundColor: '#f8fafc',
-                border: '1px solid #e2e8f0',
+                border: '2px solid #10b981',
                 borderRadius: '12px',
                 padding: '1.5rem',
                 marginBottom: '1.5rem'
               }}>
-                <p style={{
-                  fontSize: '1rem',
-                  color: '#374151',
-                  margin: 0,
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
                   marginBottom: '1rem'
                 }}>
-                  Describe a time when you faced an unexpected obstacle in a project. How did you resolve it?
+                  <h4 style={{
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: '#10b981',
+                    margin: 0,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    Practice Question - {selectedCategory}
+                  </h4>
+                  <button
+                    onClick={() => setCurrentPracticeQuestion(getRandomQuestion())}
+                    style={{
+                      padding: '0.25rem 0.75rem',
+                      backgroundColor: 'white',
+                      color: '#10b981',
+                      border: '1px solid #10b981',
+                      borderRadius: '6px',
+                      fontSize: '0.75rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    New Question
+                  </button>
+                </div>
+
+                <p style={{
+                  fontSize: '1.05rem',
+                  color: '#1f2937',
+                  margin: '0 0 1.5rem 0',
+                  lineHeight: '1.6',
+                  fontWeight: '500'
+                }}>
+                  {currentPracticeQuestion}
                 </p>
 
-                <button style={{
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#06b6d4',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}>
-                  Start
-                </button>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button 
+                    onClick={() => router.push('/live-ai-interview')}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <Target size={16} />
+                    Practice with AI
+                  </button>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(currentPracticeQuestion)
+                      setToast({ show: true, message: 'Question copied to clipboard!' })
+                      setTimeout(() => setToast({ show: false, message: '' }), 3000)
+                    }}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: 'white',
+                      color: '#6b7280',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Copy Question
+                  </button>
+                </div>
               </div>
 
+              {/* Category-Specific Tips */}
               <div style={{
                 display: 'flex',
                 gap: '0.75rem',
-                padding: '1rem',
+                padding: '1.25rem',
                 backgroundColor: '#fef3c7',
                 borderRadius: '8px',
                 border: '1px solid #f59e0b'
@@ -505,23 +1080,93 @@ export default function WeaknessOverview() {
                     fontWeight: '600',
                     color: '#92400e',
                     margin: 0,
-                    marginBottom: '0.25rem'
+                    marginBottom: '0.5rem'
                   }}>
-                    Tip:
+                    {getCategoryTips(selectedCategory).title}
                   </p>
                   <p style={{
                     fontSize: '0.875rem',
                     color: '#92400e',
-                    margin: 0
+                    margin: 0,
+                    lineHeight: '1.5'
                   }}>
-                    Focus on how you identified the root cause, explored different solutions, and took decisive action. Highlight a positive outcome.
+                    {getCategoryTips(selectedCategory).description}
                   </p>
                 </div>
               </div>
+
+              {/* Additional Resources */}
+              {categoryDetails[selectedCategory.toLowerCase().replace('-', '-')] && (
+                <div style={{
+                  marginTop: '1.5rem',
+                  padding: '1.25rem',
+                  backgroundColor: '#eff6ff',
+                  borderRadius: '8px',
+                  border: '1px solid #3b82f6'
+                }}>
+                  <h4 style={{
+                    fontSize: '0.875rem',
+                    fontWeight: '600',
+                    color: '#1e40af',
+                    margin: '0 0 0.75rem 0'
+                  }}>
+                    📚 Focus Areas for {selectedCategory}
+                  </h4>
+                  <div style={{ fontSize: '0.85rem', color: '#1e40af' }}>
+                    {categoryDetails[selectedCategory.toLowerCase().replace('problem-solving', 'problem-solving')]?.improvements.slice(0, 3).map((imp, idx) => (
+                      <div key={idx} style={{ 
+                        marginBottom: '0.5rem',
+                        paddingLeft: '1rem',
+                        position: 'relative'
+                      }}>
+                        <span style={{ position: 'absolute', left: 0 }}>•</span>
+                        {imp}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <div style={{
+          position: 'fixed',
+          bottom: '2rem',
+          right: '2rem',
+          backgroundColor: '#10b981',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          zIndex: 1000,
+          animation: 'slideIn 0.3s ease-out'
+        }}>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="white">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          <span style={{ fontSize: '0.875rem', fontWeight: '500' }}>{toast.message}</span>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   )
 }

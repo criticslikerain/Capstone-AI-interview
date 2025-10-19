@@ -1,12 +1,21 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const LiveAIInterview = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedInterviewType, setSelectedInterviewType] = useState('behavioral');
   const [selectedDifficulty, setSelectedDifficulty] = useState('intermediate');
   const [voiceRecording, setVoiceRecording] = useState(true);
   const [videoRecording, setVideoRecording] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState('');
+
+  useEffect(() => {
+    // Get topic from navigation state or sessionStorage
+    const topic = location.state?.topic || sessionStorage.getItem('selectedTopic') || 'Software Engineering';
+    setSelectedTopic(topic);
+    sessionStorage.setItem('selectedTopic', topic);
+  }, [location]);
 
   return (
     <div style={{
@@ -63,10 +72,40 @@ const LiveAIInterview = () => {
           fontSize: '2rem',
           fontWeight: 'bold',
           color: '#1f2937',
+          marginBottom: '0.5rem'
+        }}>
+          Live AI Interview
+        </h1>
+        <p style={{
+          fontSize: '1rem',
+          color: '#6b7280',
           marginBottom: '2rem'
         }}>
-          Interview Setup
-        </h1>
+          Set up your personalized interview experience
+        </p>
+
+        {/* Category Display */}
+        <div style={{ marginBottom: '2rem' }}>
+          <h3 style={{
+            fontSize: '1rem',
+            fontWeight: '500',
+            color: '#6b7280',
+            marginBottom: '0.5rem'
+          }}>
+            Category
+          </h3>
+          <div style={{
+            padding: '1rem',
+            backgroundColor: '#e0f2fe',
+            border: '2px solid #06b6d4',
+            borderRadius: '8px',
+            fontSize: '1.125rem',
+            fontWeight: '600',
+            color: '#06b6d4'
+          }}>
+            {selectedTopic}
+          </div>
+        </div>
 
         {/* Interview Type */}
         <div style={{ marginBottom: '2rem' }}>
@@ -242,6 +281,7 @@ const LiveAIInterview = () => {
           onClick={() => {
             // Store interview configuration
             sessionStorage.setItem('interviewConfig', JSON.stringify({
+              topic: selectedTopic,
               interviewType: selectedInterviewType,
               difficulty: selectedDifficulty,
               voiceRecording,

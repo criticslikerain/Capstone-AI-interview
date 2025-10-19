@@ -56,8 +56,11 @@ export default function Sidebar({ activeItem }) {
       case 'profile':
         router.push('/profile')
         break
-      case 'settings':
-        router.push('/settings')
+      case 'faq':
+        router.push('/faq')
+        break
+      case 'app-info':
+        router.push('/app-info')
         break
       default:
         break
@@ -80,7 +83,8 @@ export default function Sidebar({ activeItem }) {
     { id: 'question-bank', icon: HelpCircle, label: 'Question Bank' },
     { id: 'subscriptions', icon: CreditCard, label: 'Subscriptions' },
     { id: 'profile', icon: User, label: 'Profile' },
-    { id: 'settings', icon: Settings, label: 'Settings' }
+    { id: 'faq', icon: HelpCircle, label: 'FAQ' },
+    { id: 'app-info', icon: Settings, label: 'App Info' }
   ]
 
   return (

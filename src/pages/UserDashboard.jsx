@@ -24,7 +24,7 @@ const UserDashboard = ({ onLogout }) => {
         navigate('/user-dashboard');
         break;
       case 'live-interview':
-        navigate('/live-ai-interview');
+        navigate('/live-ai-interview-content-page');
         break;
       case 'past-interviews':
         navigate('/weakness-overview');
@@ -654,22 +654,24 @@ const UserDashboard = ({ onLogout }) => {
 
               {/* Start Mock Interview Button - button para sa mock interview */}
               <div style={{ marginTop: '2rem' }}>
-                <button style={{
-                  width: '100%',
-                  padding: '1rem 2rem',
-                  backgroundColor: '#06b6d4',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)'
-                }}>
+                <button 
+                  onClick={() => navigate('/live-ai-interview-content-page')}
+                  style={{
+                    width: '100%',
+                    padding: '1rem 2rem',
+                    backgroundColor: '#06b6d4',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)'
+                  }}>
                   <Zap size={20} />
                   Start Mock Interview
                 </button>

@@ -25,13 +25,12 @@ const LoadingSpinner = ({ message = "Loading..." }) => {
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          {/* Loading spinner */}
           <div style={{
             width: '3rem',
             height: '3rem',
             borderWidth: '4px',
             borderStyle: 'solid',
-            borderColor: '#dbeafe #dbeafe #3b82f6 #dbeafe', // border-top is blue
+            borderColor: '#dbeafe #dbeafe #3b82f6 #dbeafe',
             borderRadius: '50%',
             animation: 'spin 1s linear infinite',
             marginBottom: '1rem'
@@ -45,7 +44,6 @@ const LoadingSpinner = ({ message = "Loading..." }) => {
         </div>
       </div>
       
-      {/* Add CSS animation for the spinner */}
       <style jsx>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }

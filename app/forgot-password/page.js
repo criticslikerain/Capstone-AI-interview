@@ -2,16 +2,21 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, ArrowLeft } from 'lucide-react';
+import { Mail, ArrowLeft, Lock } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [sentCode, setSentCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const router = useRouter();
 
-  const handleSubmit = async (e) => {
+  const handleSendCode = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
@@ -29,10 +34,57 @@ export default function ForgotPasswordPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage(data.message);
-        setEmail('');
+        setSentCode(data.verificationCode);
+        setStep(2);
+        setMessage('Verification code sent to your email!');
       } else {
-        setError(data.error || 'Failed to send reset email');
+        setError(data.error || 'Failed to send verification code');
+      }
+    } catch (error) {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+
+    if (verificationCode !== sentCode) {
+      setError('Invalid verification code');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage('Password reset successful! Redirecting to login...');
+        setTimeout(() => router.push('/login'), 2000);
+      } else {
+        setError(data.error || 'Failed to reset password');
       }
     } catch (error) {
       setError('Network error. Please try again.');
@@ -174,7 +226,7 @@ export default function ForgotPasswordPage() {
               color: '#111827',
               marginBottom: '1rem'
             }}>
-              Forgot Password
+              {step === 1 ? 'Forgot Password' : 'Reset Password'}
             </h1>
             <p style={{
               color: '#6b7280',
@@ -182,71 +234,186 @@ export default function ForgotPasswordPage() {
               lineHeight: '1.6',
               maxWidth: '320px'
             }}>
-              Enter your email address below, and we'll send you a link to reset your password.
+              {step === 1 
+                ? "Enter your email address and we'll send you a verification code."
+                : 'Enter the verification code and your new password.'}
             </p>
           </div>
 
-          {/* Reset Password Form */}
-          <form onSubmit={handleSubmit} style={{
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.5rem'
-          }}>
-            {/* Email Input */}
-            <div style={{ position: 'relative' }}>
-              <div style={{
-                position: 'absolute',
-                left: '1rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                pointerEvents: 'none'
-              }}>
-                <Mail size={20} color="#9ca3af" />
+          {/* Step 1: Email Form */}
+          {step === 1 && (
+            <form onSubmit={handleSendCode} style={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem'
+            }}>
+              <div style={{ position: 'relative' }}>
+                <div style={{
+                  position: 'absolute',
+                  left: '1rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none'
+                }}>
+                  <Mail size={20} color="#9ca3af" />
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter email address"
+                  style={{
+                    width: '100%',
+                    paddingLeft: '3rem',
+                    paddingRight: '1rem',
+                    paddingTop: '1rem',
+                    paddingBottom: '1rem',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.75rem',
+                    outline: 'none',
+                    fontSize: '1rem',
+                    color: '#111827',
+                    boxSizing: 'border-box'
+                  }}
+                  required
+                />
               </div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter email address"
+              <button
+                type="submit"
+                disabled={loading}
                 style={{
                   width: '100%',
-                  paddingLeft: '3rem',
-                  paddingRight: '1rem',
-                  paddingTop: '1rem',
-                  paddingBottom: '1rem',
-                  border: '1px solid #e5e7eb',
+                  padding: '1rem',
+                  backgroundColor: loading ? '#9ca3af' : '#06b6d4',
+                  color: 'white',
+                  border: 'none',
                   borderRadius: '0.75rem',
-                  outline: 'none',
                   fontSize: '1rem',
-                  color: '#111827',
-                  boxSizing: 'border-box'
+                  fontWeight: '500',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                  transition: 'background-color 0.2s'
                 }}
-                required
-              />
-            </div>
+              >
+                {loading ? 'Sending...' : 'Send Verification Code'}
+              </button>
+            </form>
+          )}
 
-            {/* Reset Password Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '1rem',
-                backgroundColor: loading ? '#9ca3af' : '#06b6d4',
-                color: 'white',
-                border: 'none',
-                borderRadius: '0.75rem',
-                fontSize: '1rem',
-                fontWeight: '500',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                transition: 'background-color 0.2s'
-              }}
-            >
-              {loading ? 'Sending...' : 'Reset Password'}
-            </button>
-          </form>
+          {/* Step 2: Verification & Password Reset Form */}
+          {step === 2 && (
+            <form onSubmit={handleResetPassword} style={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem'
+            }}>
+              <div>
+                <input
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  placeholder="Enter 6-digit code"
+                  maxLength="6"
+                  style={{
+                    width: '100%',
+                    padding: '1rem',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.75rem',
+                    outline: 'none',
+                    fontSize: '1rem',
+                    color: '#111827',
+                    textAlign: 'center',
+                    letterSpacing: '0.5rem',
+                    boxSizing: 'border-box'
+                  }}
+                  required
+                />
+              </div>
+              <div style={{ position: 'relative' }}>
+                <div style={{
+                  position: 'absolute',
+                  left: '1rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none'
+                }}>
+                  <Lock size={20} color="#9ca3af" />
+                </div>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="New password"
+                  style={{
+                    width: '100%',
+                    paddingLeft: '3rem',
+                    paddingRight: '1rem',
+                    paddingTop: '1rem',
+                    paddingBottom: '1rem',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.75rem',
+                    outline: 'none',
+                    fontSize: '1rem',
+                    color: '#111827',
+                    boxSizing: 'border-box'
+                  }}
+                  required
+                />
+              </div>
+              <div style={{ position: 'relative' }}>
+                <div style={{
+                  position: 'absolute',
+                  left: '1rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none'
+                }}>
+                  <Lock size={20} color="#9ca3af" />
+                </div>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  style={{
+                    width: '100%',
+                    paddingLeft: '3rem',
+                    paddingRight: '1rem',
+                    paddingTop: '1rem',
+                    paddingBottom: '1rem',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.75rem',
+                    outline: 'none',
+                    fontSize: '1rem',
+                    color: '#111827',
+                    boxSizing: 'border-box'
+                  }}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  backgroundColor: loading ? '#9ca3af' : '#06b6d4',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '0.75rem',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                  transition: 'background-color 0.2s'
+                }}
+              >
+                {loading ? 'Resetting...' : 'Reset Password'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>

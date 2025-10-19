@@ -59,12 +59,13 @@ export async function POST(request) {
     //*******************************************************************
     await updateUser(user.id, { last_login: new Date() })
 
-    // jwt gen. 
     const token = jwt.sign(
       { 
         userId: user.id, 
         email: user.email, 
-        userType: user.user_type 
+        userType: user.user_type,
+        firstName: user.first_name,
+        lastName: user.last_name
       },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
@@ -82,15 +83,12 @@ export async function POST(request) {
       redirectTo: user.user_type === 'admin' ? '/admin' : '/user-dashboard'
     })
 
-    // http-only cookie 
-    // damnss--
-    // 7days naka set 
-    // =-=-=-=-=-=-=-=-=-=-=
     response.cookies.set('token', token, {
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60,
+      path: '/'
     })
 
     return response

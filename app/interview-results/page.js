@@ -1,10 +1,14 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Download, BarChart3, TrendingUp, Award, AlertCircle, Volume2, VolumeX } from 'lucide-react'
+import { ArrowLeft, Download, BarChart3, TrendingUp, Award, AlertCircle, Volume2, VolumeX, FileText } from 'lucide-react'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function InterviewResults() {
   const router = useRouter()
+  const { user } = useAuth()
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(true)
   const [conversation, setConversation] = useState([])
@@ -25,10 +29,38 @@ export default function InterviewResults() {
     try {
       const storedConversation = JSON.parse(localStorage.getItem('interview_conversation') || '[]')
       setConversation(storedConversation)
+      
+      // Get user ID from Firebase Auth or fallback to JWT
+      let userId = user?.uid
+      
+      if (!userId) {
+        const token = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('token='))
+          ?.split('=')[1]
+        
+        if (token) {
+          try {
+            const res = await fetch('/api/auth/me', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            })
+            const data = await res.json()
+            userId = data.user?.id || data.user?.uid
+          } catch (err) {
+            console.error('Error fetching user:', err)
+          }
+        }
+      }
+      
+      console.log('Saving interview with userId:', userId)
+      
       const response = await fetch('/api/interviews/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversation: storedConversation })
+        body: JSON.stringify({ 
+          conversation: storedConversation,
+          userId: userId
+        })
       })
       const data = await response.json()
       setAnalysis(data.analysis)
@@ -171,6 +203,181 @@ Overall, you showed good potential and with some targeted practice on the mentio
     }
   }
 
+  const downloadPDF = async () => {
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const margin = 20
+      let yPosition = margin
+
+      // Add logo at top right
+      try {
+        const logoImg = new Image()
+        logoImg.src = '/favicon-96x96.png'
+        await new Promise((resolve) => {
+          logoImg.onload = resolve
+          logoImg.onerror = resolve
+        })
+        pdf.addImage(logoImg, 'PNG', pageWidth - 35, 10, 20, 20)
+      } catch (e) {
+        console.log('Logo not added:', e)
+      }
+
+      // Title
+      pdf.setFontSize(24)
+      pdf.setTextColor(17, 24, 39)
+      pdf.text('Interview Results Report', margin, yPosition)
+      yPosition += 15
+
+      // Date
+      pdf.setFontSize(10)
+      pdf.setTextColor(107, 114, 128)
+      pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, margin, yPosition)
+      yPosition += 15
+
+      // Overall Score Section
+      pdf.setFillColor(6, 182, 212)
+      pdf.circle(pageWidth / 2, yPosition + 15, 20, 'S')
+      pdf.setFontSize(28)
+      pdf.setTextColor(17, 24, 39)
+      pdf.text(`${analysis?.overallScore || 75}`, pageWidth / 2, yPosition + 18, { align: 'center' })
+      pdf.setFontSize(10)
+      pdf.setTextColor(107, 114, 128)
+      pdf.text('out of 100', pageWidth / 2, yPosition + 25, { align: 'center' })
+      yPosition += 45
+
+      pdf.setFontSize(16)
+      pdf.setTextColor(17, 24, 39)
+      pdf.text('Overall Performance', pageWidth / 2, yPosition, { align: 'center' })
+      yPosition += 8
+
+      pdf.setFontSize(10)
+      pdf.setTextColor(107, 114, 128)
+      const feedback = analysis?.overallFeedback || "Good performance with room for improvement"
+      const feedbackLines = pdf.splitTextToSize(feedback, pageWidth - 2 * margin)
+      pdf.text(feedbackLines, pageWidth / 2, yPosition, { align: 'center' })
+      yPosition += feedbackLines.length * 5 + 10
+
+      // Metrics Section
+      pdf.setFontSize(14)
+      pdf.setTextColor(17, 24, 39)
+      pdf.text('Performance Metrics', margin, yPosition)
+      yPosition += 10
+
+      const metrics = [
+        { label: 'Communication', score: analysis?.communicationScore || 78, color: [6, 182, 212] },
+        { label: 'Confidence', score: analysis?.confidenceScore || 82, color: [16, 185, 129] },
+        { label: 'Relevance', score: analysis?.relevanceScore || 85, color: [245, 158, 11] }
+      ]
+
+      metrics.forEach((metric) => {
+        pdf.setFillColor(...metric.color)
+        pdf.rect(margin, yPosition, 50, 8, 'F')
+        pdf.setFontSize(10)
+        pdf.setTextColor(255, 255, 255)
+        pdf.text(metric.label, margin + 2, yPosition + 5.5)
+        pdf.setTextColor(17, 24, 39)
+        pdf.text(`${metric.score}/100`, margin + 55, yPosition + 5.5)
+        yPosition += 12
+      })
+      yPosition += 5
+
+      // Strengths Section
+      pdf.setFontSize(14)
+      pdf.setTextColor(16, 185, 129)
+      pdf.text('Strengths', margin, yPosition)
+      yPosition += 8
+
+      const strengths = analysis?.strengths || [
+        "Clear communication style",
+        "Good examples provided",
+        "Professional demeanor"
+      ]
+
+      pdf.setFontSize(10)
+      pdf.setTextColor(55, 65, 81)
+      strengths.forEach((strength) => {
+        pdf.text(`• ${strength}`, margin + 5, yPosition)
+        yPosition += 6
+      })
+      yPosition += 5
+
+      // Areas for Improvement Section
+      pdf.setFontSize(14)
+      pdf.setTextColor(245, 158, 11)
+      pdf.text('Areas for Improvement', margin, yPosition)
+      yPosition += 8
+
+      const improvements = analysis?.improvements || [
+        "Provide more specific examples",
+        "Elaborate on technical skills",
+        "Show more enthusiasm"
+      ]
+
+      pdf.setFontSize(10)
+      pdf.setTextColor(55, 65, 81)
+      improvements.forEach((improvement) => {
+        pdf.text(`• ${improvement}`, margin + 5, yPosition)
+        yPosition += 6
+      })
+      yPosition += 5
+
+      // Check if we need a new page
+      if (yPosition > pageHeight - 60) {
+        pdf.addPage()
+        yPosition = margin
+      }
+
+      // Detailed Analysis Section
+      pdf.setFontSize(14)
+      pdf.setTextColor(17, 24, 39)
+      pdf.text('Detailed Analysis', margin, yPosition)
+      yPosition += 8
+
+      pdf.setFontSize(10)
+      pdf.setTextColor(55, 65, 81)
+      const detailedAnalysis = analysis?.detailedAnalysis || "Your interview performance shows good potential with several areas of strength."
+      const analysisLines = pdf.splitTextToSize(detailedAnalysis, pageWidth - 2 * margin)
+      pdf.text(analysisLines, margin, yPosition)
+      yPosition += analysisLines.length * 5 + 8
+
+      // Recommendations Section
+      pdf.setFontSize(12)
+      pdf.setTextColor(17, 24, 39)
+      pdf.text('Recommendations:', margin, yPosition)
+      yPosition += 7
+
+      const recommendations = analysis?.recommendations || [
+        "Practice the STAR method for behavioral questions",
+        "Prepare specific examples that demonstrate your key skills",
+        "Research the company and role more thoroughly"
+      ]
+
+      pdf.setFontSize(10)
+      pdf.setTextColor(55, 65, 81)
+      recommendations.forEach((rec) => {
+        if (yPosition > pageHeight - 20) {
+          pdf.addPage()
+          yPosition = margin
+        }
+        const recLines = pdf.splitTextToSize(`• ${rec}`, pageWidth - 2 * margin - 5)
+        pdf.text(recLines, margin + 5, yPosition)
+        yPosition += recLines.length * 5 + 2
+      })
+
+      pdf.setFontSize(8)
+      pdf.setTextColor(156, 163, 175)
+      pdf.text('InterviewPro - AI-Powered Interview Practice', pageWidth / 2, pageHeight - 10, { align: 'center' })
+
+      // Save PDF
+      pdf.save(`interview-results-${Date.now()}.pdf`)
+    } catch (error) {
+      console.error('PDF generation failed:', error)
+      alert('Failed to generate PDF. Please try again.')
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ 
@@ -182,68 +389,29 @@ Overall, you showed good potential and with some targeted practice on the mentio
         fontFamily: 'Inter, sans-serif'
       }}>
         <div style={{ textAlign: 'center' }}>
-          {/* Main Spinner */}
+          {/* Single Spinner */}
           <div style={{
             width: '80px',
             height: '80px',
             border: '8px solid #e5e7eb',
             borderTop: '8px solid #06b6d4',
             borderRadius: '50%',
-            margin: '0 auto 2rem',
+            margin: '0 auto 1.5rem',
             animation: 'spin 1s linear infinite'
           }}></div>
           
-          {/* Analysis Icon */}
-          <div style={{
-            width: '60px',
-            height: '60px',
-            backgroundColor: '#06b6d4',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 1.5rem',
-            boxShadow: '0 4px 20px rgba(6, 182, 212, 0.3)'
-          }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-              <path d="M9 11H7v8h2v-8zm4-4h-2v12h2V7zm4-2h-2v14h2V5z"/>
-              <path d="M5 3v18h14V3H5zm12 16H7V5h10v14z"/>
-            </svg>
-          </div>
-          
           {/* Loading Text */}
           <p style={{ 
-            marginTop: '1rem', 
             color: '#374151',
             fontSize: '1.25rem',
             fontWeight: '600',
-            marginBottom: '1rem',
-            animation: 'pulse 2s ease-in-out infinite'
+            marginBottom: '0.5rem'
           }}>
             AI analyzing your interview...
           </p>
           
-          {/* Progress Dots */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            marginTop: '1.5rem'
-          }}>
-            {[0, 0.2, 0.4].map((delay, i) => (
-              <div key={i} style={{
-                width: '10px',
-                height: '10px',
-                backgroundColor: '#06b6d4',
-                borderRadius: '50%',
-                animation: `bounce 2s infinite ${delay}s`
-              }}></div>
-            ))}
-          </div>
-          
           {/* Status Text */}
           <p style={{
-            marginTop: '1.5rem',
             color: '#6b7280',
             fontSize: '0.875rem'
           }}>
@@ -256,15 +424,6 @@ Overall, you showed good potential and with some targeted practice on the mentio
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
           }
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-          }
-          @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
-          }
         `}</style>
       </div>
     )
@@ -275,7 +434,6 @@ Overall, you showed good potential and with some targeted practice on the mentio
       {/* Header */}
       <div style={{
         backgroundColor: 'white',
-        borderBottom: '1px solid #e5e7eb',
         padding: '1rem 2rem'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -301,7 +459,7 @@ Overall, you showed good potential and with some targeted practice on the mentio
         {/* Overall Score */}
         <div style={{
           backgroundColor: 'white', borderRadius: '12px', padding: '2rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', marginBottom: '2rem',
+          marginBottom: '2rem',
           textAlign: 'center'
         }}>
           <div style={{
@@ -317,9 +475,10 @@ Overall, you showed good potential and with some targeted practice on the mentio
               />
             </svg>
             <div style={{
-              position: 'absolute', fontSize: '2rem', fontWeight: 'bold', color: '#111827'
+              position: 'absolute', fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', textAlign: 'center'
             }}>
-              {analysis?.overallScore || 75}%
+              <div>{analysis?.overallScore || 75}</div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280', fontWeight: 'normal' }}>out of 100</div>
             </div>
           </div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', marginBottom: '0.5rem' }}>
@@ -372,33 +531,33 @@ Overall, you showed good potential and with some targeted practice on the mentio
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
           <div style={{
             backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', textAlign: 'center'
+            textAlign: 'center'
           }}>
             <BarChart3 size={32} color="#06b6d4" style={{ margin: '0 auto 1rem' }} />
             <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#111827' }}>
-              {analysis?.communicationScore || 78}%
+              {analysis?.communicationScore || 78}/100
             </div>
             <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: 0 }}>Communication</p>
           </div>
 
           <div style={{
             backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', textAlign: 'center'
+            textAlign: 'center'
           }}>
             <TrendingUp size={32} color="#10b981" style={{ margin: '0 auto 1rem' }} />
             <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#111827' }}>
-              {analysis?.confidenceScore || 82}%
+              {analysis?.confidenceScore || 82}/100
             </div>
             <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: 0 }}>Confidence</p>
           </div>
 
           <div style={{
             backgroundColor: 'white', borderRadius: '12px', padding: '1.5rem',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', textAlign: 'center'
+            textAlign: 'center'
           }}>
             <Award size={32} color="#f59e0b" style={{ margin: '0 auto 1rem' }} />
             <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#111827' }}>
-              {analysis?.relevanceScore || 85}%
+              {analysis?.relevanceScore || 85}/100
             </div>
             <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: 0 }}>Relevance</p>
           </div>
@@ -408,8 +567,7 @@ Overall, you showed good potential and with some targeted practice on the mentio
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
           {/* Strengths */}
           <div style={{
-            backgroundColor: 'white', borderRadius: '12px', padding: '2rem',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            backgroundColor: 'white', borderRadius: '12px', padding: '2rem'
           }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#10b981', marginBottom: '1rem' }}>
               Strengths
@@ -433,8 +591,7 @@ Overall, you showed good potential and with some targeted practice on the mentio
 
           {/* Areas for Improvement */}
           <div style={{
-            backgroundColor: 'white', borderRadius: '12px', padding: '2rem',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+            backgroundColor: 'white', borderRadius: '12px', padding: '2rem'
           }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#f59e0b', marginBottom: '1rem' }}>
               Areas for Improvement
@@ -458,7 +615,7 @@ Overall, you showed good potential and with some targeted practice on the mentio
         {/* Detailed Analysis */}
         <div style={{
           backgroundColor: 'white', borderRadius: '12px', padding: '2rem',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)', marginBottom: '2rem'
+          marginBottom: '2rem'
         }}>
           <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#111827', marginBottom: '1rem' }}>
             Detailed Analysis
@@ -483,7 +640,20 @@ Overall, you showed good potential and with some targeted practice on the mentio
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={downloadPDF}
+            style={{
+              padding: '1rem 2rem', backgroundColor: '#8b5cf6', color: 'white',
+              border: 'none', borderRadius: '8px', fontSize: '1rem', fontWeight: '600',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+              boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)'
+            }}
+          >
+            <FileText size={20} />
+            Download PDF Report
+          </button>
+
           <button
             onClick={downloadAudio}
             style={{
@@ -494,7 +664,7 @@ Overall, you showed good potential and with some targeted practice on the mentio
             }}
           >
             <Download size={20} />
-            Download Interview Audio
+            Download Audio
           </button>
           
           <button
@@ -512,8 +682,3 @@ Overall, you showed good potential and with some targeted practice on the mentio
     </div>
   )
 }
-
-/* ============================================== 
-    PAGES SHITS  
-
-*/ 

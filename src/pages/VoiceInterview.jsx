@@ -31,7 +31,6 @@ const VoiceInterview = ({ onLogout }) => {
   const audioPlayerRef = useRef(null);
   const recognitionRef = useRef(null);
   
-  // API Keys from environment variables
   const HF_API_KEY = process.env.HUGGING_FACE_API_KEY;
   const ELEVEN_API_KEY = process.env.ELEVEN_LABS_API_KEY;
   const ELEVEN_VOICE_ID = process.env.ELEVEN_LABS_VOICE_ID;
@@ -92,10 +91,6 @@ const VoiceInterview = ({ onLogout }) => {
     { id: 'settings', icon: Settings, label: 'Settings' }
   ];
 
-  //=================================================
-  // I-LOAD ANG INTERVIEW CONFIGURATION
-  // Kung mag start ang component, i-setup nato
-  //=================================================
   useEffect(() => {
     const config = sessionStorage.getItem('interviewConfig');
     if (config) {
@@ -107,10 +102,6 @@ const VoiceInterview = ({ onLogout }) => {
     }
   }, []);
   
-  //=================================================
-  // TIMER EFFECT
-  // Para track sa duration sa interview
-  //=================================================
   useEffect(() => {
     let timer;
     if (interviewStarted) {
@@ -121,10 +112,6 @@ const VoiceInterview = ({ onLogout }) => {
     return () => clearInterval(timer);
   }, [interviewStarted]);
   
-  //=================================================
-  // SPEECH RECOGNITION SETUP
-  // Para maka recognize ta sa voice sa user
-  //=================================================
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -149,44 +136,49 @@ const VoiceInterview = ({ onLogout }) => {
     }
   }, []);
 
-  //=================================================
-  // I-FORMAT ANG TIME
-  // Convert into minutes ug seconds (MM:SS)
-  //=================================================
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  //=================================================
-  // START SA INTERVIEW
-  // Based sa profession nga gi pick sa user
-  //=================================================
   const startInterview = async () => {
     if (!selectedProfession) return;
     
     setInterviewStarted(true);
     setQuestionCount(0);
     
-    const focusType = interviewConfig?.focus || 'full';
-    let systemPrompt = `You are a professional interviewer conducting a ${selectedProfession} interview.`;
+    const topic = interviewConfig?.topic || 'Software Engineering';
+    const interviewType = interviewConfig?.interviewType || 'behavioral';
+    const difficulty = interviewConfig?.difficulty || 'intermediate';
     
-    switch(focusType) {
+    let systemPrompt = `You are a professional interviewer conducting a ${topic} interview for a ${selectedProfession} position.`;
+    
+    switch(interviewType) {
       case 'behavioral':
-        systemPrompt += ` Focus on behavioral questions using the STAR method. Ask about past experiences, teamwork, leadership, and problem-solving situations.`;
+        systemPrompt += ` Focus on behavioral questions using the STAR method (Situation, Task, Action, Result). Ask about past experiences, teamwork, leadership, conflict resolution, and problem-solving situations relevant to ${topic}.`;
         break;
       case 'technical':
-        systemPrompt += ` Focus on technical questions relevant to ${selectedProfession}. Ask about technical skills, problem-solving approaches, and industry-specific knowledge.`;
+        systemPrompt += ` Focus on technical questions specific to ${topic}. Ask about technical skills, problem-solving approaches, coding practices, tools, frameworks, and industry-specific technical knowledge.`;
         break;
       case 'situational':
-        systemPrompt += ` Focus on situational questions. Present hypothetical scenarios and ask how the candidate would handle them.`;
+        systemPrompt += ` Focus on situational questions. Present hypothetical scenarios related to ${topic} and ask how the candidate would handle them. Test their decision-making and critical thinking.`;
         break;
-      default:
-        systemPrompt += ` Conduct a comprehensive interview covering behavioral, technical, and situational questions.`;
     }
     
-    systemPrompt += ` Ask one question at a time, keep responses concise (2-3 sentences max), and maintain a professional tone. Limit the interview to 5-7 questions total.`;
+    switch(difficulty) {
+      case 'beginner':
+        systemPrompt += ` Keep questions at entry-level difficulty. Focus on fundamental concepts, basic knowledge, and simple scenarios suitable for someone starting their career in ${topic}.`;
+        break;
+      case 'intermediate':
+        systemPrompt += ` Ask mid-level professional questions. Include moderately complex scenarios, practical experience-based questions, and topics requiring solid understanding of ${topic}.`;
+        break;
+      case 'advanced':
+        systemPrompt += ` Ask senior-level challenging questions. Include complex scenarios, advanced concepts, leadership situations, and deep technical or strategic knowledge of ${topic}.`;
+        break;
+    }
+    
+    systemPrompt += ` Ask one question at a time, keep your responses concise (2-3 sentences max), and maintain a professional tone. Limit the interview to 5-7 questions total. Tailor each question specifically to ${topic} and ${interviewType} interview style at ${difficulty} level.`;
     
     const systemMessage = {
       role: "system",
@@ -196,17 +188,11 @@ const VoiceInterview = ({ onLogout }) => {
     const initialMessages = [systemMessage];
     setMessages(initialMessages);
     
-    // Save messages to localStorage for persistence
     localStorage.setItem('interview_messages', JSON.stringify(initialMessages));
     
-    // Get first question
     await sendMessageToAI(initialMessages, "Please start the interview with your first question.");
   };
   
-  //=================================================
-  // SEND MESSAGE SA AI
-  // Para makadawat tag response gikan sa AI
-  //=================================================
   const sendMessageToAI = async (currentMessages, userInput = null) => {
     setIsProcessing(true);
     setIsAISpeaking(true);
@@ -241,15 +227,12 @@ const VoiceInterview = ({ onLogout }) => {
       setMessages(updatedMessages);
       setCurrentQuestion(aiResponse);
       
-      // Save updated messages
       localStorage.setItem('interview_messages', JSON.stringify(updatedMessages));
       
-      // Increment question count if this is a new question from AI
       if (userInput) {
         setQuestionCount(prev => prev + 1);
       }
       
-      // Convert to speech
       await speakText(aiResponse);
       
     } catch (error) {
@@ -263,7 +246,6 @@ const VoiceInterview = ({ onLogout }) => {
     }
   };
   
-  // Convert text to speech
   const speakText = async (text) => {
     try {
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE_ID}`, {
@@ -294,13 +276,11 @@ const VoiceInterview = ({ onLogout }) => {
     }
   };
   
-  // Handle user voice response
   const handleUserResponse = async (speechText) => {
     if (!speechText.trim()) return;
     
     console.log('User said:', speechText);
     
-    // Check if interview should end (after 5-7 questions)
     if (questionCount >= 6) {
       const endMessage = "Thank you for completing the interview. We'll now analyze your responses and provide feedback.";
       setCurrentQuestion(endMessage);
@@ -314,14 +294,9 @@ const VoiceInterview = ({ onLogout }) => {
       return;
     }
     
-    // Send user response to AI for next question
     await sendMessageToAI(messages, speechText);
   };
   
-  //=================================================
-  // END INTERVIEW
-  // Para mahuman ang interview kung gusto sa user
-  //=================================================
   const endInterview = async () => {
     const endMessage = "Interview ended. Thank you for your time. Redirecting to results...";
     setCurrentQuestion(endMessage);
@@ -367,11 +342,6 @@ const VoiceInterview = ({ onLogout }) => {
       fontFamily: 'Inter, sans-serif',
       overflow: 'hidden'
     }}>
-      {/*==================================================
-         * SIDEBAR SECTION
-         * Nindot kaayo nga sidebar para sa navigation
-         * Diri makita ang tanan links sa app
-         *================================================*/}
       <div style={{
         width: '280px',
         backgroundColor: '#1f2937',
@@ -387,11 +357,6 @@ const VoiceInterview = ({ onLogout }) => {
         height: '100vh',
         zIndex: 10
       }}>
-        {/*=================================================
-           * DARK OVERLAY
-           * Para dili kaayo siga ang background image
-           * Mas readable ang text ani
-           *===============================================*/}
         <div style={{
           position: 'absolute',
           top: 0,
@@ -402,11 +367,6 @@ const VoiceInterview = ({ onLogout }) => {
           zIndex: 1
         }}></div>
         
-        {/*=================================================
-           * SIDEBAR CONTENT CONTAINER
-           * Main container sa tanan content sa sidebar
-           * Para organized ang layout
-           *===============================================*/}
         <div style={{
           position: 'relative',
           zIndex: 2,
@@ -414,7 +374,6 @@ const VoiceInterview = ({ onLogout }) => {
           flexDirection: 'column',
           height: '100%'
         }}>
-          {/* Logo Section - logo sa InterviewPro */}
           <div style={{
             padding: '2rem 1.5rem',
             borderBottom: '1px solid rgba(55, 65, 81, 0.5)'
@@ -436,11 +395,10 @@ const VoiceInterview = ({ onLogout }) => {
             </div>
           </div>
 
-          {/* Navigation - mga navigation items */}
           <nav style={{ flex: 1, padding: '1rem 0' }}>
             {sidebarItems.map((item) => {
               const Icon = item.icon;
-              const isActive = item.id === 'live-interview'; // Live AI Interview is active
+              const isActive = item.id === 'live-interview';
               
               return (
                 <button
@@ -478,11 +436,6 @@ const VoiceInterview = ({ onLogout }) => {
         </div>
       </div>
 
-      {/*=================================================
-         * MAIN INTERVIEW INTERFACE
-         * Diri mahitabo ang voice interview
-         * Naa diri ang timer ug AI interaction
-         *===============================================*/}
       <div style={{
         marginLeft: '280px',
         width: 'calc(100vw - 280px)',
@@ -492,11 +445,6 @@ const VoiceInterview = ({ onLogout }) => {
         flexDirection: 'column',
         color: 'white'
       }}>
-        {/*=================================================
-           * HEADER SECTION
-           * Naa diri ang timer ug status sa AI
-           * Para mahibaw-an sa user ang progress
-           *===============================================*/}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -504,11 +452,6 @@ const VoiceInterview = ({ onLogout }) => {
           padding: '2rem',
           position: 'relative'
         }}>
-          {/*=================================================
-             * TIMER DISPLAY
-             * Para makita pila na ka dugay ang interview
-             * Format: MM:SS
-             *===============================================*/}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -523,11 +466,6 @@ const VoiceInterview = ({ onLogout }) => {
             <span>Elapsed Time: {formatTime(elapsedTime)}</span>
           </div>
 
-          {/*=================================================
-             * AI STATUS INDICATOR
-             * Para makita kung nag process pa ang AI
-             * Or ready na mo respond
-             *===============================================*/}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -538,7 +476,6 @@ const VoiceInterview = ({ onLogout }) => {
             <span>{isAISpeaking ? 'AI Interviewer is speaking...' : 'Your turn to speak'}</span>
           </div>
 
-          {/* Menu button */}
           <button style={{
             background: 'rgba(255, 255, 255, 0.2)',
             border: 'none',
@@ -551,11 +488,6 @@ const VoiceInterview = ({ onLogout }) => {
           </button>
         </div>
 
-        {/*=================================================
-           * INTERVIEW AREA
-           * Main area para sa Q&A sa interview
-           * Diri makita ang questions ug responses
-           *===============================================*/}
         <div style={{
           flex: 1,
           display: 'flex',
@@ -566,7 +498,6 @@ const VoiceInterview = ({ onLogout }) => {
           textAlign: 'center'
         }}>
           {!interviewStarted ? (
-            /* Profession Selection */
             <div style={{
               maxWidth: '500px',
               width: '100%'
@@ -624,9 +555,7 @@ const VoiceInterview = ({ onLogout }) => {
               </button>
             </div>
           ) : (
-            /* Interview Interface */
             <>
-              {/* Audio visualization with enhanced animation */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -663,7 +592,6 @@ const VoiceInterview = ({ onLogout }) => {
                 })}
               </div>
 
-              {/* Status indicator with question counter */}
               <div style={{
                 marginBottom: '2rem',
                 textAlign: 'center'
@@ -682,11 +610,10 @@ const VoiceInterview = ({ onLogout }) => {
                   fontSize: '0.9rem',
                   color: 'rgba(255, 255, 255, 0.6)'
                 }}>
-                  Question {questionCount} of 6 • {selectedProfession} Interview
+                  Question {questionCount} of 6 • {interviewConfig?.topic || 'Software Engineering'} • {interviewConfig?.interviewType || 'Behavioral'} • {interviewConfig?.difficulty || 'Intermediate'}
                 </div>
               </div>
 
-              {/* Question text */}
               <h2 style={{
                 fontSize: '1.8rem',
                 fontWeight: '400',
@@ -706,7 +633,6 @@ const VoiceInterview = ({ onLogout }) => {
           )}
         </div>
 
-        {/* Bottom mic section */}
         {interviewStarted && (
           <div style={{
             backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -717,7 +643,6 @@ const VoiceInterview = ({ onLogout }) => {
             alignItems: 'center',
             gap: '1rem'
           }}>
-            {/* Mic button */}
             <button
               onClick={handleMicClick}
               onMouseDown={handleMicMouseDown}
@@ -746,7 +671,6 @@ const VoiceInterview = ({ onLogout }) => {
               {isListening ? <MicOff size={40} color="white" /> : <Mic size={40} color="white" />}
             </button>
 
-            {/* Instructions and End Interview Button */}
             <div style={{
               display: 'flex',
               flexDirection: 'column',
@@ -786,7 +710,6 @@ const VoiceInterview = ({ onLogout }) => {
               </button>
             </div>
             
-            {/* Hidden audio player */}
             <audio ref={audioPlayerRef} style={{ display: 'none' }} />
           </div>
         )}

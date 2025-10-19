@@ -1,25 +1,140 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Sidebar from '../../components/Sidebar'
 import { ChevronRight, Lightbulb, BarChart3 } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { getInterviewSessions } from '../../lib/firebase'
 
 export default function StrengthsOverview() {
   const [expandedCard, setExpandedCard] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [strengthData, setStrengthData] = useState(null)
+  const [categoryDetails, setCategoryDetails] = useState({})
+  const { user } = useAuth()
 
-  const strengthData = {
-    keyStrength: {
-      name: "Clear Communication",
-      identifiedIn: "3 out of 4 interviews",
-      questions: [
-        "Tell me about a time you resolved a conflict in the team.",
-        "How would you approach solving a complex customer issue?",
-        "Describe how you communicate complex ideas to non-technical people."
-      ],
-      categories: {
-        behavioral: 60,
-        problemSolving: 30,
-        situational: 10
+  useEffect(() => {
+    if (user) {
+      loadStrengthData()
+    }
+  }, [user])
+
+  const loadStrengthData = async () => {
+    try {
+      const interviews = await getInterviewSessions(user.uid)
+      
+      if (interviews.length === 0) {
+        setStrengthData(null)
+        setLoading(false)
+        return
       }
+
+      // Analyze strengths across all interviews
+      const allStrengths = interviews.flatMap(i => i.strengths || [])
+      const strengthCounts = {}
+      
+      allStrengths.forEach(strength => {
+        const normalized = strength.toLowerCase().trim()
+        strengthCounts[normalized] = (strengthCounts[normalized] || 0) + 1
+      })
+
+      // Find the most common strength
+      const topStrength = Object.entries(strengthCounts)
+        .sort((a, b) => b[1] - a[1])[0]
+
+      if (!topStrength) {
+        setStrengthData(null)
+        setLoading(false)
+        return
+      }
+
+      const [strengthName, count] = topStrength
+      
+      // Get interviews where this strength appeared
+      const relevantInterviews = interviews.filter(i => 
+        i.strengths?.some(s => s.toLowerCase().trim() === strengthName)
+      )
+
+      // Extract questions from conversations
+      const questions = relevantInterviews
+        .flatMap(i => {
+          if (!i.conversation) return []
+          return i.conversation
+            .filter(msg => msg.type === 'ai' && msg.text.includes('?'))
+            .map(msg => msg.text)
+        })
+        .slice(0, 3)
+
+      // Calculate category distribution
+      const categoryCount = { behavioral: 0, problemSolving: 0, situational: 0 }
+      relevantInterviews.forEach(i => {
+        const type = i.interviewType?.toLowerCase() || 'behavioral'
+        if (type.includes('behavioral')) categoryCount.behavioral++
+        else if (type.includes('problem') || type.includes('technical')) categoryCount.problemSolving++
+        else if (type.includes('situational')) categoryCount.situational++
+        else categoryCount.behavioral++
+      })
+
+      const total = Object.values(categoryCount).reduce((a, b) => a + b, 0)
+      const categories = {
+        behavioral: Math.round((categoryCount.behavioral / total) * 100),
+        problemSolving: Math.round((categoryCount.problemSolving / total) * 100),
+        situational: Math.round((categoryCount.situational / total) * 100)
+      }
+
+      // Calculate detailed analytics per category
+      const details = {}
+      const categoryTypes = [
+        { id: 'behavioral', name: 'Behavioral' },
+        { id: 'problemSolving', name: 'Problem-Solving' },
+        { id: 'situational', name: 'Situational' }
+      ]
+
+      categoryTypes.forEach(cat => {
+        const catInterviews = interviews.filter(i => {
+          const type = i.interviewType?.toLowerCase() || 'behavioral'
+          if (cat.id === 'behavioral') return type.includes('behavioral')
+          if (cat.id === 'problemSolving') return type.includes('problem') || type.includes('technical')
+          if (cat.id === 'situational') return type.includes('situational')
+          return false
+        })
+
+        if (catInterviews.length > 0) {
+          const avgScore = catInterviews.reduce((sum, i) => sum + (i.percentage_scored || 0), 0) / catInterviews.length
+          const topStrengths = catInterviews
+            .flatMap(i => i.strengths || [])
+            .slice(0, 3)
+
+          details[cat.id] = {
+            count: catInterviews.length,
+            avgScore: Math.round(avgScore),
+            strengths: [...new Set(topStrengths)],
+            examples: catInterviews.slice(0, 2).map(i => ({
+              topic: i.topic || 'General Interview',
+              score: i.percentage_scored || 0,
+              date: i.created_at
+            }))
+          }
+        }
+      })
+
+      setCategoryDetails(details)
+      setStrengthData({
+        keyStrength: {
+          name: strengthName.charAt(0).toUpperCase() + strengthName.slice(1),
+          identifiedIn: `${count} out of ${interviews.length} interviews`,
+          questions: questions.length > 0 ? questions : [
+            "Questions from your interview sessions",
+            "will be displayed here",
+            "as you complete more interviews"
+          ],
+          categories
+        }
+      })
+      
+    } catch (error) {
+      console.error('Error loading strength data:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -41,6 +156,12 @@ export default function StrengthsOverview() {
     }
   ]
 
+  const formatDate = (date) => {
+    if (!date) return 'N/A'
+    const d = date.toDate ? date.toDate() : new Date(date)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
   const resources = [
     {
       title: "Communication Skills Workshop",
@@ -58,6 +179,94 @@ export default function StrengthsOverview() {
       description: "Master the art of presenting your strengths effectively"
     }
   ]
+
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        height: '100vh',
+        fontFamily: 'Inter, sans-serif',
+        overflow: 'hidden'
+      }}>
+        <Sidebar activeItem="strengths-overview" />
+        <div style={{
+          marginLeft: '280px',
+          width: 'calc(100vw - 280px)',
+          height: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f9fafb'
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: '60px',
+              height: '60px',
+              border: '6px solid #e5e7eb',
+              borderTop: '6px solid #06b6d4',
+              borderRadius: '50%',
+              margin: '0 auto 1rem',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+            <p style={{ color: '#6b7280', fontSize: '1rem' }}>Loading your strengths...</p>
+          </div>
+          <style jsx>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      </div>
+    )
+  }
+
+  if (!strengthData) {
+    return (
+      <div style={{
+        display: 'flex',
+        height: '100vh',
+        fontFamily: 'Inter, sans-serif',
+        overflow: 'hidden'
+      }}>
+        <Sidebar activeItem="strengths-overview" />
+        <div style={{
+          marginLeft: '280px',
+          width: 'calc(100vw - 280px)',
+          height: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f9fafb'
+        }}>
+          <div style={{ textAlign: 'center', maxWidth: '500px', padding: '2rem' }}>
+            <Lightbulb size={64} color="#F59E0B" style={{ margin: '0 auto 1rem' }} />
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1f2937', marginBottom: '0.5rem' }}>
+              No Interview Data Yet
+            </h2>
+            <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
+              Complete some AI interviews to see your strengths analysis here. Your performance data will help identify your key strengths across different question categories.
+            </p>
+            <button
+              onClick={() => window.location.href = '/live-ai-interview'}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#06b6d4',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Start Your First Interview
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{
@@ -429,14 +638,136 @@ export default function StrengthsOverview() {
                       {expandedCard === category.id && (
                         <div style={{
                           marginTop: '1rem',
-                          padding: '1rem',
+                          padding: '1.5rem',
                           backgroundColor: '#f8fafc',
-                          borderRadius: '8px'
+                          borderRadius: '8px',
+                          border: '1px solid #e5e7eb'
                         }}>
-                          <p style={{ color: '#6b7280', margin: 0, fontSize: '0.95rem' }}>
-                            Detailed insights about your performance in {category.title.toLowerCase()} will be displayed here. 
-                            This includes specific examples, scoring patterns, and recommendations for continued improvement.
-                          </p>
+                          {categoryDetails[category.id] ? (
+                            <div>
+                              <div style={{ marginBottom: '1.5rem' }}>
+                                <h4 style={{ 
+                                  fontSize: '1rem', 
+                                  fontWeight: '600', 
+                                  color: '#1f2937', 
+                                  marginBottom: '0.75rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem'
+                                }}>
+                                  <BarChart3 size={18} color={category.color} />
+                                  Performance Analytics
+                                </h4>
+                                <div style={{ 
+                                  display: 'grid', 
+                                  gridTemplateColumns: '1fr 1fr', 
+                                  gap: '1rem',
+                                  marginBottom: '1rem'
+                                }}>
+                                  <div style={{
+                                    backgroundColor: 'white',
+                                    padding: '1rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e5e7eb'
+                                  }}>
+                                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+                                      Interviews Completed
+                                    </div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: category.color }}>
+                                      {categoryDetails[category.id].count}
+                                    </div>
+                                  </div>
+                                  <div style={{
+                                    backgroundColor: 'white',
+                                    padding: '1rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e5e7eb'
+                                  }}>
+                                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>
+                                      Average Score
+                                    </div>
+                                    <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: category.color }}>
+                                      {categoryDetails[category.id].avgScore}%
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {categoryDetails[category.id].strengths.length > 0 && (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                  <h4 style={{ 
+                                    fontSize: '0.95rem', 
+                                    fontWeight: '600', 
+                                    color: '#1f2937', 
+                                    marginBottom: '0.5rem' 
+                                  }}>
+                                    Key Strengths in This Category
+                                  </h4>
+                                  <ul style={{ 
+                                    margin: 0, 
+                                    paddingLeft: '1.2rem', 
+                                    color: '#374151',
+                                    fontSize: '0.9rem'
+                                  }}>
+                                    {categoryDetails[category.id].strengths.map((strength, idx) => (
+                                      <li key={idx} style={{ marginBottom: '0.25rem' }}>
+                                        {strength}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+
+                              {categoryDetails[category.id].examples.length > 0 && (
+                                <div>
+                                  <h4 style={{ 
+                                    fontSize: '0.95rem', 
+                                    fontWeight: '600', 
+                                    color: '#1f2937', 
+                                    marginBottom: '0.5rem' 
+                                  }}>
+                                    Recent Interview Examples
+                                  </h4>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {categoryDetails[category.id].examples.map((example, idx) => (
+                                      <div 
+                                        key={idx}
+                                        style={{
+                                          backgroundColor: 'white',
+                                          padding: '0.75rem',
+                                          borderRadius: '6px',
+                                          border: '1px solid #e5e7eb',
+                                          display: 'flex',
+                                          justifyContent: 'space-between',
+                                          alignItems: 'center'
+                                        }}
+                                      >
+                                        <div>
+                                          <div style={{ fontSize: '0.85rem', fontWeight: '500', color: '#374151' }}>
+                                            {example.topic}
+                                          </div>
+                                          <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                                            {formatDate(example.date)}
+                                          </div>
+                                        </div>
+                                        <div style={{
+                                          fontSize: '0.9rem',
+                                          fontWeight: '600',
+                                          color: example.score >= 80 ? '#10b981' : example.score >= 70 ? '#f59e0b' : '#6b7280'
+                                        }}>
+                                          {Math.round(example.score)}%
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p style={{ color: '#6b7280', margin: 0, fontSize: '0.9rem' }}>
+                              No data available for {category.title.toLowerCase()} yet. Complete more interviews in this category to see detailed analytics.
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>

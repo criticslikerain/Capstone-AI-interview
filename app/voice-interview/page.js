@@ -24,8 +24,8 @@ export default function VoiceInterview() {
   useEffect(() => {
     const config = sessionStorage.getItem('interviewConfig')
     if (config) {
-      setInterviewConfig(JSON.parse(config))
-    }
+      const parsedConfig = JSON.parse(config)
+      setInterviewConfig(parsedConfig)
 
     if ('webkitSpeechRecognition' in window) {
       recognitionRef.current = new window.webkitSpeechRecognition()
@@ -63,28 +63,42 @@ export default function VoiceInterview() {
       }
     }
 
-    if (!hasStartedRef.current) {
-      hasStartedRef.current = true
-      const systemPrompt = `You are a PROFESSIONAL JOB INTERVIEWER conducting an interview. CRITICAL RULES:
+      if (!hasStartedRef.current) {
+        hasStartedRef.current = true
+        const category = parsedConfig.category || 'general'
+        const interviewType = parsedConfig.interviewType || 'behavioral'
+        const difficulty = parsedConfig.difficulty || 'intermediate'
+        
+        const categoryName = category.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+        
+        const difficultyInstructions = {
+          beginner: 'Ask entry-level questions. Be encouraging and supportive.',
+          intermediate: 'Ask mid-level professional questions with moderate complexity.',
+          advanced: 'Ask senior-level challenging questions that require deep expertise.'
+        }
+        
+        const systemPrompt = `You are a PROFESSIONAL ${categoryName.toUpperCase()} INTERVIEWER conducting a ${interviewType.toUpperCase()} interview.
 
+CRITICAL RULES:
 1. YOU ARE THE INTERVIEWER - The candidate is being interviewed BY YOU
-2. NEVER introduce yourself or talk about your own experience
-3. ONLY ask follow-up questions based on the candidate's responses
+2. ONLY ask questions related to ${categoryName} and ${interviewType} interview type
+3. ${difficultyInstructions[difficulty]}
 4. Keep responses under 40 words
-5. Stay in character as an HR interviewer at all times
-6. Remember previous answers and build upon them
-7. If the candidate says they are CEO of a company, ask relevant follow-up questions about their leadership experience
+5. NEVER go off-topic from ${categoryName}
+6. Ask follow-up questions based on candidate's responses
+7. Stay strictly within the ${categoryName} domain
 
-Example responses:
-"Thank you Nathaniel. As CEO of Meta, what's been your biggest leadership challenge?"
-"That's impressive. How do you handle making difficult decisions as a CEO?"
-"Interesting. What leadership style do you find most effective?"`
-      
-      setMessages([{ role: "system", content: systemPrompt }])
-      
-      setTimeout(() => {
-        startInterview()
-      }, 1000)
+Example for Software Engineering Technical:
+"What data structures would you use for this problem?"
+"Explain the time complexity of your solution."
+"How would you optimize this code?"`
+        
+        setMessages([{ role: "system", content: systemPrompt }])
+        
+        setTimeout(() => {
+          startInterview(parsedConfig)
+        }, 1000)
+      }
     }
 
     return () => {
@@ -94,10 +108,20 @@ Example responses:
     }
   }, [])
 
-  const startInterview = () => {
-    const greeting = `Hello! Welcome to your ${interviewConfig?.type || 'behavioral'} interview. I'm your AI interviewer today. Let's begin with our first question. Tell me about yourself and why you're interested in this position.`
+  const startInterview = (config) => {
+    const category = config?.category || 'general'
+    const categoryName = category.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+    const interviewType = config?.interviewType || 'behavioral'
     
-    const initialConversation = [{ type: 'ai', text: greeting }]
+    const greeting = `Hello! Welcome to your ${interviewType} interview for ${categoryName}. I'm your AI interviewer today. Let's begin with our first question. Tell me about yourself and why you're interested in this position.`
+    
+    const initialConversation = [
+      { 
+        type: 'ai', 
+        text: greeting,
+        interviewConfig: config
+      }
+    ]
     setConversation(initialConversation)
     setMessages(prev => [...prev, { role: "assistant", content: greeting }])
     
@@ -178,10 +202,16 @@ Example responses:
     }
   }
 
-  const startListening = () => {
-    if (recognitionRef.current && !isListening && !isProcessing && !isAISpeaking) {
+  const startListening = async () => {
+    if (!recognitionRef.current || isListening || isProcessing || isAISpeaking) return
+    
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true })
       setIsListening(true)
       recognitionRef.current.start()
+    } catch (error) {
+      console.error('Microphone access denied:', error)
+      alert('Please allow microphone access to use voice mode. Check your browser settings and try again.')
     }
   }
 
@@ -221,7 +251,8 @@ Example responses:
       
       const requestBody = { 
         messages: currentMessages,
-        isClosingStatement: isRequestingClosing
+        isClosingStatement: isRequestingClosing,
+        interviewConfig: interviewConfig
       }
       
       console.log('Request body:', requestBody)

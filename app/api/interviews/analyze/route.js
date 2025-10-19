@@ -3,7 +3,7 @@ import { createInterview } from '../../../../lib/firebase.js'
 
 export async function POST(request) {
   try {
-    const { conversation } = await request.json()
+    const { conversation, userId } = await request.json()
 
    
 
@@ -62,7 +62,7 @@ Provide analysis in this JSON format:
     } else {
       analysis = generateFallbackAnalysis(conversation)
     }
-    await saveInterviewToDatabase(conversation, analysis)
+    await saveInterviewToDatabase(conversation, analysis, userId)
 
     return NextResponse.json({ analysis })
 
@@ -106,13 +106,44 @@ function generateFallbackAnalysis(conversation) {
     ]
   }
 }
-async function saveInterviewToDatabase(conversation, analysis) {
+async function saveInterviewToDatabase(conversation, analysis, userId) {
   try {
+    const interviewConfig = conversation[0]?.interviewConfig || {}
+    
+    const categoryMap = {
+      'software-engineering': 'Software Engineering',
+      'web-development': 'Web Development',
+      'data-science': 'Data Science & Analytics',
+      'business-management': 'Business Management',
+      'accounting-finance': 'Accounting & Finance',
+      'healthcare-medical': 'Healthcare & Medical',
+      'marketing-sales': 'Marketing & Sales',
+      'database-administration': 'Database Administration'
+    }
+    
+    const categoryId = interviewConfig.category || interviewConfig.topic || 'general'
+    const categoryTitle = categoryMap[categoryId] || interviewConfig.topic || 'General'
+    
     await createInterview({
+      userId: userId,
       conversation,
       analysis,
-      overall_score: analysis.overallScore
+      overall_score: analysis.overallScore,
+      communicationScore: analysis.communicationScore,
+      confidenceScore: analysis.confidenceScore,
+      relevanceScore: analysis.relevanceScore,
+      clarityScore: analysis.clarityScore || 0,
+      detailedAnalysis: analysis.detailedAnalysis,
+      strengths: analysis.strengths,
+      improvements: analysis.improvements,
+      recommendations: analysis.recommendations,
+      interviewType: interviewConfig.interviewType || 'General',
+      difficulty: interviewConfig.difficulty || 'intermediate',
+      topic: categoryTitle,
+      category: categoryId,
+      timestamp: new Date()
     })
+    console.log('Interview saved successfully for user:', userId, 'Category:', categoryTitle)
   } catch (error) {
     console.error('Database save error:', error)
   }

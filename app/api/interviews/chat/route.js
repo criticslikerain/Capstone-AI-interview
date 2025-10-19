@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request) {
   try {
-    const { messages, isClosingStatement = false } = await request.json()
+    const { messages, isClosingStatement = false, interviewConfig = {} } = await request.json()
     console.log('=== Chat API Called ===')
     console.log('Messages:', messages)
     console.log('Is closing statement:', isClosingStatement)
@@ -48,6 +48,19 @@ export async function POST(request) {
       
       return NextResponse.json({ response: randomClosing })
     }
+    const category = interviewConfig.category || 'general'
+    const interviewType = interviewConfig.interviewType || 'behavioral'
+    const difficulty = interviewConfig.difficulty || 'intermediate'
+    const categoryName = category.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+    
+    const difficultyPrompts = {
+      beginner: 'Ask simple, entry-level questions.',
+      intermediate: 'Ask moderate complexity questions.',
+      advanced: 'Ask challenging, senior-level questions.'
+    }
+    
+    const systemPrompt = `You are a ${categoryName} interviewer conducting a ${interviewType} interview. ${difficultyPrompts[difficulty]} ONLY ask questions about ${categoryName}. Keep responses under 30 words.`
+    
     const response = await fetch("https://router.huggingface.co/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -59,7 +72,7 @@ export async function POST(request) {
         messages: [
           { 
             role: "system", 
-            content: "You are a professional job interviewer. Ask follow-up questions based on what the candidate tells you. Be conversational. Keep responses under 30 words."
+            content: systemPrompt
           },
           ...messages.slice(1)
         ],
