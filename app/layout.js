@@ -6,6 +6,13 @@ export const metadata = {
   description: 'Master your interviews with AI-powered practice and feedback',
 }
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+}
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
