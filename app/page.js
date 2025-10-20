@@ -77,7 +77,7 @@ export default function Home() {
           width: 100vw;
           height: 100vh;
           z-index: 0;
-          background: linear-gradient(135deg, #0a192f 0%, #112240 25%, #1e3a5f 50%, #0d1b2a 75%, #000814 100%);
+          background: linear-gradient(135deg, #e0f7ff 0%, #b3e5fc 25%, #81d4fa 50%, #4fc3f7 75%, #29b6f6 100%);
         }
 
         .mobile-background::before {
@@ -86,9 +86,9 @@ export default function Home() {
           top: 20%;
           left: 50%;
           transform: translateX(-50%);
-          width: 300px;
-          height: 300px;
-          background: radial-gradient(circle, rgba(0, 198, 255, 0.15) 0%, transparent 70%);
+          width: 350px;
+          height: 350px;
+          background: radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, transparent 70%);
           border-radius: 50%;
           animation: float 6s ease-in-out infinite;
         }
@@ -99,9 +99,9 @@ export default function Home() {
           bottom: 20%;
           left: 50%;
           transform: translateX(-50%);
-          width: 200px;
-          height: 200px;
-          background: radial-gradient(circle, rgba(0, 114, 255, 0.1) 0%, transparent 70%);
+          width: 250px;
+          height: 250px;
+          background: radial-gradient(circle, rgba(0, 198, 255, 0.3) 0%, transparent 70%);
           border-radius: 50%;
           animation: float 8s ease-in-out infinite reverse;
         }
@@ -303,7 +303,7 @@ export default function Home() {
 
         .slogan-subtitle {
           font-size: 1rem;
-          color: #b0b0b0;
+          color: #555;
           font-weight: 400;
           letter-spacing: 0.5px;
           margin: 0;
@@ -315,13 +315,14 @@ export default function Home() {
           align-items: center;
           justify-content: center;
           gap: 10px;
-          background: rgba(0, 198, 255, 0.08);
-          border: 1px solid rgba(0, 198, 255, 0.25);
+          background: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(0, 150, 255, 0.3);
           border-radius: 12px;
           padding: 10px 20px;
           backdrop-filter: blur(10px);
           margin: 0 auto;
           max-width: fit-content;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .headphone-icon {
@@ -332,7 +333,7 @@ export default function Home() {
 
         .desktop-message-text {
           font-size: 0.85rem;
-          color: #00c6ff;
+          color: #0072ff;
           font-weight: 500;
           margin: 0;
           white-space: nowrap;
@@ -432,6 +433,8 @@ export default function Home() {
             height: auto;
             padding: 8px 16px;
             text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            color: #555;
           }
 
           .loading-logo {
