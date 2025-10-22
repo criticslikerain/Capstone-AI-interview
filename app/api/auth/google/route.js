@@ -51,29 +51,36 @@ export async function POST(request) {
     // CHECK KUNG NAA NA BA ANG USER SA FIRESTORE
     // Kung wala pa, mag create ta ug bag-ong user gamit ang info gikan sa Google
     //*******************************************************************
+    console.log('Checking if user exists in Firestore...');
     const usersQuery = firestoreQuery(collection(db, 'users'), where('email', '==', email));
     const querySnapshot = await getDocs(usersQuery);
     
     let userId;
+    const now = new Date();
     
     if (querySnapshot.empty) {
+      console.log('Creating new user...');
       // Create new user in Firestore
       userId = crypto.randomUUID();
       const userData = {
         email: email,
         first_name: given_name || 'User',
         last_name: family_name || '',
-        profile_picture_url: picture,
+        profile_picture_url: picture || '',
         is_email_verified: true,
+        is_active: true,
         user_type: 'user',
-        created_at: serverTimestamp(),
-        updated_at: serverTimestamp(),
-        last_login: serverTimestamp()
+        created_at: now,
+        updated_at: now,
+        last_login: now
       };
       
+      console.log('User data to create:', userData);
       const userDoc = doc(db, 'users', userId);
       await setDoc(userDoc, userData);
+      console.log('User created successfully with ID:', userId);
     } else {
+      console.log('User exists, updating last login...');
       // User already exists, get the existing user
       const existingUser = querySnapshot.docs[0];
       userId = existingUser.id;
@@ -81,9 +88,10 @@ export async function POST(request) {
       
       // Update last login
       await updateDoc(userDoc, {
-        last_login: serverTimestamp(),
-        updated_at: serverTimestamp()
+        last_login: now,
+        updated_at: now
       });
+      console.log('User updated successfully');
     }
     // Get user data
     const userData = {
@@ -96,6 +104,13 @@ export async function POST(request) {
     };
 
     // Generate JWT token
+    console.log('Generating JWT token...');
+    console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'Not set');
+    
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET is not configured');
+    }
+    
     const token = sign(
       { 
         userId: userId, 
@@ -107,6 +122,8 @@ export async function POST(request) {
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
+    
+    console.log('JWT token generated successfully');
 
     const response = NextResponse.json({
       message: 'Login successful',
