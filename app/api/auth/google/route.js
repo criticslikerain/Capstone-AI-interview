@@ -16,18 +16,16 @@ import { initializeApp, getApps } from 'firebase/app';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 export async function POST(request) {
   try {
+    console.log('Google auth API called');
     const { credential } = await request.json();
 
-
-
-
-
-
-
-
     if (!credential) {
+      console.error('No credential provided');
       return NextResponse.json({ error: 'Google credential is required' }, { status: 400 });
     }
+
+    console.log('Verifying Google token...');
+    console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Not set');
 
     //*******************************************************************
     // VERIFY SA GOOGLE TOKEN
@@ -38,12 +36,12 @@ export async function POST(request) {
       audience: process.env.GOOGLE_CLIENT_ID,
     });
 
-
-
-
+    console.log('Token verified successfully');
 
     const payload = ticket.getPayload();
     const { email, given_name, family_name, picture, email_verified } = payload;
+    
+    console.log('User email:', email, 'Verified:', email_verified);
 
     if (!email_verified) {
       return NextResponse.json({ error: 'Email not verified by Google' }, { status: 400 });
@@ -135,8 +133,16 @@ export async function POST(request) {
     return response;
 
   } catch (error) {
-
     console.error('Google OAuth error:', error);
-    return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    return NextResponse.json({ 
+      error: 'Authentication failed',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 });
   }
 }

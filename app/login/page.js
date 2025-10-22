@@ -145,15 +145,18 @@ function LoginContent() {
       })
 
       const data = await res.json()
+      console.log('API response:', data)
 
       if (res.ok) {
+        console.log('Login successful, redirecting to:', data.redirectTo)
         router.replace(data.redirectTo || '/user-dashboard')
       } else {
-        setError(data.error || 'Google sign-in failed')
+        console.error('Login failed:', data)
+        setError(data.details || data.error || 'Google sign-in failed')
       }
     } catch (error) {
       console.error('Google callback error:', error)
-      setError('Google sign-in failed. Please try again.')
+      setError(`Google sign-in failed: ${error.message}`)
     } finally {
       setLoading(false)
     }
