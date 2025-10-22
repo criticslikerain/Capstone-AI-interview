@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server';
 import { OAuth2Client } from 'google-auth-library';
-import { db } from '../../../../lib/firebase';
-import { collection, query as firestoreQuery, where, getDocs, doc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { adminDb, adminAuth } from '../../../../lib/firebase-admin';
 import { sign } from 'jsonwebtoken';
 import crypto from 'crypto';
-import { signInWithCustomToken, getAuth } from 'firebase/auth';
-import { initializeApp, getApps } from 'firebase/app';
 
 
 //****************************************************************************
@@ -48,19 +45,24 @@ export async function POST(request) {
     }
 
     //*******************************************************************
-    // CHECK KUNG NAA NA BA ANG USER SA FIRESTORE
+    // CHECK KUNG NAA NA BA ANG USER SA FIRESTORE USING ADMIN SDK
     // Kung wala pa, mag create ta ug bag-ong user gamit ang info gikan sa Google
     //*******************************************************************
     console.log('Checking if user exists in Firestore...');
-    const usersQuery = firestoreQuery(collection(db, 'users'), where('email', '==', email));
-    const querySnapshot = await getDocs(usersQuery);
+    
+    if (!adminDb) {
+      throw new Error('Firebase Admin not initialized');
+    }
+    
+    const usersRef = adminDb.collection('users');
+    const querySnapshot = await usersRef.where('email', '==', email).get();
     
     let userId;
     const now = new Date();
     
     if (querySnapshot.empty) {
       console.log('Creating new user...');
-      // Create new user in Firestore
+      // Create new user in Firestore using Admin SDK (bypasses security rules)
       userId = crypto.randomUUID();
       const userData = {
         email: email,
@@ -76,18 +78,16 @@ export async function POST(request) {
       };
       
       console.log('User data to create:', userData);
-      const userDoc = doc(db, 'users', userId);
-      await setDoc(userDoc, userData);
+      await usersRef.doc(userId).set(userData);
       console.log('User created successfully with ID:', userId);
     } else {
       console.log('User exists, updating last login...');
       // User already exists, get the existing user
       const existingUser = querySnapshot.docs[0];
       userId = existingUser.id;
-      const userDoc = existingUser.ref;
       
-      // Update last login
-      await updateDoc(userDoc, {
+      // Update last login using Admin SDK
+      await usersRef.doc(userId).update({
         last_login: now,
         updated_at: now
       });
