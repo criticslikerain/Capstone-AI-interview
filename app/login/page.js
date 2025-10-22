@@ -96,7 +96,8 @@ function LoginContent() {
               callback: handleGoogleCallback,
               auto_select: false,
               cancel_on_tap_outside: true,
-              use_fedcm_for_prompt: true
+              ux_mode: 'popup',
+              context: 'signin'
             })
             
             // Render the Google button
@@ -107,7 +108,8 @@ function LoginContent() {
                 size: 'large',
                 text: 'signin_with',
                 shape: 'rectangular',
-                logo_alignment: 'left'
+                logo_alignment: 'left',
+                width: 350
               })
             }
           } catch (error) {
