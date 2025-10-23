@@ -42,7 +42,7 @@ export async function POST(request) {
             ],
             payment_method_types: ['gcash'],
             description: description || `InterviewPro ${period === 'monthly' ? 'Monthly' : 'Yearly'} Subscription`,
-            success_url: `${baseUrl}/payment-success?ref=${userId}-${Date.now()}`,
+            success_url: `${baseUrl}/payment-success?ref=${userId}-${plan}-${period}-${Date.now()}`,
             cancel_url: `${baseUrl}/pricing`,
             metadata: {
               plan: plan,
