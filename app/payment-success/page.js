@@ -1,70 +1,78 @@
 'use client'
-import { useEffect, useState, Suspense } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '../contexts/AuthContext'
-import { updateUserSubscription } from '../../lib/firebase'
+import { Check, X, Loader2 } from 'lucide-react'
 
-function PaymentSuccessContent() {
+export default function PaymentSuccess() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  
-  const plan = searchParams.get('plan')
-  const period = searchParams.get('period')
-  const userId = searchParams.get('userId')
+  const [status, setStatus] = useState('verifying') // verifying, success, error
+  const [message, setMessage] = useState('Verifying your payment...')
+  const [plan, setPlan] = useState('')
+  const [period, setPeriod] = useState('')
 
   useEffect(() => {
-    if (plan && period && userId && user) {
-      // Verify user matches
-      if (user.uid === userId) {
-        updateSubscription()
-      } else {
-        setError('User mismatch')
-        setLoading(false)
+    const verifyPayment = async () => {
+      try {
+        const sessionId = searchParams.get('session_id')
+        
+        if (!sessionId) {
+          setStatus('error')
+          setMessage('Invalid payment session')
+          return
+        }
+
+        if (!user) {
+          setStatus('error')
+          setMessage('Please log in to verify your payment')
+          return
+        }
+
+        console.log('Verifying payment for session:', sessionId)
+        console.log('User ID:', user.uid)
+
+        // Call the verify payment API
+        const response = await fetch('/api/verify-payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sessionId: sessionId,
+            userId: user.uid
+          }),
+        })
+
+        const data = await response.json()
+        console.log('Verification response:', data)
+
+        if (response.ok && data.success) {
+          setStatus('success')
+          setMessage('Payment successful! Your subscription has been activated.')
+          setPlan(data.plan || 'Premium')
+          setPeriod(data.period || 'monthly')
+          
+          // Redirect to dashboard after 3 seconds
+          setTimeout(() => {
+            router.push('/user-dashboard')
+          }, 3000)
+        } else {
+          setStatus('error')
+          setMessage(data.error || 'Payment verification failed')
+        }
+      } catch (error) {
+        console.error('Payment verification error:', error)
+        setStatus('error')
+        setMessage('An error occurred while verifying your payment')
       }
-    } else if (!plan || !period) {
-      router.push('/pricing')
     }
-  }, [plan, period, userId, user, router])
 
-  const updateSubscription = async () => {
-    try {
-      // Wait a bit for webhook to process (if configured)
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      // Calculate next billing date
-      const nextBillingDate = new Date()
-      if (period === 'yearly') {
-        nextBillingDate.setFullYear(nextBillingDate.getFullYear() + 1)
-      } else if (period === 'monthly') {
-        nextBillingDate.setMonth(nextBillingDate.getMonth() + 1)
-      }
-
-      // Update subscription in Firebase
-      const subscriptionData = {
-        plan: plan,
-        price: plan === 'premium' ? 399 : 3830,
-        period: period,
-        status: 'active',
-        nextBillingDate: nextBillingDate.toISOString(),
-        paymentMethod: 'PayMongo',
-        lastPaymentDate: new Date().toISOString()
-      }
-
-      await updateUserSubscription(user.uid, subscriptionData)
-      setLoading(false)
-    } catch (err) {
-      console.error('Subscription update error:', err)
-      setError(err.message)
-      setLoading(false)
+    if (user) {
+      verifyPayment()
     }
-  }
-
-  const handleContinue = () => {
-    router.push('/my-plan')
-  }
+  }, [user, searchParams, router])
 
   return (
     <div style={{
@@ -73,6 +81,7 @@ function PaymentSuccessContent() {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: '#f9fafb',
+      fontFamily: 'Inter, sans-serif',
       padding: '2rem'
     }}>
       <div style={{
@@ -82,154 +91,158 @@ function PaymentSuccessContent() {
         maxWidth: '500px',
         width: '100%',
         textAlign: 'center',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
       }}>
-        {error ? (
-          <>
+        {/* Icon */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          marginBottom: '2rem'
+        }}>
+          {status === 'verifying' && (
             <div style={{
               width: '80px',
               height: '80px',
-              backgroundColor: '#fee2e2',
               borderRadius: '50%',
+              backgroundColor: '#e0f2fe',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1.5rem'
+              justifyContent: 'center'
             }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-              </svg>
+              <Loader2 size={40} color="#06b6d4" style={{ animation: 'spin 1s linear infinite' }} />
             </div>
-            <h2 style={{
-              fontSize: '1.75rem',
-              fontWeight: '700',
-              color: '#1f2937',
-              marginBottom: '0.75rem'
-            }}>
-              Payment Verification Failed
-            </h2>
-            <p style={{
-              color: '#6b7280',
-              fontSize: '1rem',
-              marginBottom: '2rem',
-              lineHeight: '1.5'
-            }}>
-              {error}. Please contact support if you were charged.
-            </p>
-            <button
-              onClick={() => router.push('/pricing')}
-              style={{
-                width: '100%',
-                padding: '0.875rem 2rem',
-                backgroundColor: '#06b6d4',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-            >
-              Back to Pricing
-            </button>
-          </>
-        ) : loading ? (
-          <>
-            <div style={{
-              width: '64px',
-              height: '64px',
-              margin: '0 auto 1.5rem',
-              border: '4px solid #e5e7eb',
-              borderTopColor: '#06b6d4',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite'
-            }} />
-            <h2 style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              color: '#1f2937',
-              marginBottom: '0.5rem'
-            }}>
-              Processing Payment...
-            </h2>
-            <p style={{
-              color: '#6b7280',
-              fontSize: '0.875rem'
-            }}>
-              Please wait while we confirm your payment
-            </p>
-          </>
-        ) : (
-          <>
+          )}
+          {status === 'success' && (
             <div style={{
               width: '80px',
               height: '80px',
+              borderRadius: '50%',
               backgroundColor: '#d1fae5',
-              borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1.5rem'
+              justifyContent: 'center'
             }}>
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+              <Check size={40} color="#059669" strokeWidth={3} />
             </div>
-            <h2 style={{
-              fontSize: '1.75rem',
-              fontWeight: '700',
-              color: '#1f2937',
-              marginBottom: '0.75rem'
+          )}
+          {status === 'error' && (
+            <div style={{
+              width: '80px',
+              height: '80px',
+              borderRadius: '50%',
+              backgroundColor: '#fee2e2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}>
-              Payment Successful!
-            </h2>
+              <X size={40} color="#dc2626" strokeWidth={3} />
+            </div>
+          )}
+        </div>
+
+        {/* Title */}
+        <h1 style={{
+          fontSize: '1.875rem',
+          fontWeight: 'bold',
+          color: '#111827',
+          marginBottom: '1rem'
+        }}>
+          {status === 'verifying' && 'Verifying Payment'}
+          {status === 'success' && 'Payment Successful!'}
+          {status === 'error' && 'Payment Verification Failed'}
+        </h1>
+
+        {/* Message */}
+        <p style={{
+          fontSize: '1rem',
+          color: '#6b7280',
+          marginBottom: '2rem',
+          lineHeight: '1.6'
+        }}>
+          {message}
+        </p>
+
+        {/* Plan Details */}
+        {status === 'success' && plan && (
+          <div style={{
+            backgroundColor: '#f0fdf4',
+            border: '1px solid #86efac',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '2rem'
+          }}>
             <p style={{
-              color: '#6b7280',
-              fontSize: '1rem',
-              marginBottom: '2rem',
-              lineHeight: '1.5'
+              fontSize: '0.875rem',
+              color: '#166534',
+              fontWeight: '600',
+              textTransform: 'capitalize'
             }}>
-              Thank you for subscribing to InterviewPro. Your subscription is now active and you have full access to all premium features.
+              {plan} Plan - {period}
             </p>
-            <button
-              onClick={handleContinue}
-              style={{
-                width: '100%',
-                padding: '0.875rem 2rem',
-                backgroundColor: '#06b6d4',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0891b2'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#06b6d4'}
-            >
-              Go to My Plan
-            </button>
-          </>
+          </div>
         )}
+
+        {/* Actions */}
+        <div style={{
+          display: 'flex',
+          gap: '1rem',
+          justifyContent: 'center'
+        }}>
+          {status === 'error' && (
+            <>
+              <button
+                onClick={() => router.push('/pricing')}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#06b6d4',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Try Again
+              </button>
+              <button
+                onClick={() => router.push('/user-dashboard')}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: 'white',
+                  color: '#6b7280',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Go to Dashboard
+              </button>
+            </>
+          )}
+          {status === 'success' && (
+            <p style={{
+              fontSize: '0.875rem',
+              color: '#6b7280'
+            }}>
+              Redirecting to dashboard...
+            </p>
+          )}
+        </div>
       </div>
 
       <style jsx>{`
         @keyframes spin {
-          to { transform: rotate(360deg); }
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
         }
       `}</style>
     </div>
-  )
-}
-
-export default function PaymentSuccess() {
-  return (
-    <Suspense fallback={<div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>}>
-      <PaymentSuccessContent />
-    </Suspense>
   )
 }

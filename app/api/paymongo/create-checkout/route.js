@@ -4,6 +4,13 @@ export async function POST(request) {
   try {
     const { amount, description, plan, period, userId } = await request.json()
 
+    // Get the base URL from the request headers or environment
+    const host = request.headers.get('host')
+    const protocol = host?.includes('localhost') ? 'http' : 'https'
+    const baseUrl = process.env.NEXTAUTH_URL || `${protocol}://${host}`
+    
+    console.log('Payment redirect base URL:', baseUrl)
+
     // Create PayMongo Checkout Session
     const response = await fetch('https://api.paymongo.com/v1/checkout_sessions', {
       method: 'POST',
@@ -28,8 +35,8 @@ export async function POST(request) {
             ],
             payment_method_types: ['gcash', 'paymaya', 'card'],
             description: description,
-            success_url: `${process.env.NEXTAUTH_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${process.env.NEXTAUTH_URL}/pricing`,
+            success_url: `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${baseUrl}/pricing`,
             metadata: {
               plan: plan,
               period: period,
