@@ -24,24 +24,47 @@ function PaymentSuccessContent() {
         console.log('sessionStorage:', sessionStorage.getItem('pendingPayment'))
         console.log('URL params:', window.location.search)
         
-        // If not in storage, check URL params as fallback
+        // If not in storage, we need to verify using the user's recent payments
         if (!pendingPaymentStr) {
-          const urlParams = new URLSearchParams(window.location.search)
-          const sessionId = urlParams.get('session_id')
+          console.log('No payment data in storage, will verify using user ID')
           
-          if (sessionId && sessionId !== '{CHECKOUT_SESSION_ID}') {
-            // Create payment data from URL
-            pendingPaymentStr = JSON.stringify({
-              sessionId: sessionId,
-              timestamp: Date.now()
-            })
+          if (!user) {
+            setStatus('error')
+            setMessage('Please log in to verify your payment')
+            return
           }
-        }
-        
-        if (!pendingPaymentStr) {
-          console.error('No pending payment found in storage or URL')
-          setStatus('error')
-          setMessage('No pending payment found. Please try again.')
+          
+          // Call API to find and verify the most recent payment for this user
+          console.log('Verifying recent payment for user:', user.uid)
+          const response = await fetch('/api/verify-recent-payment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: user.uid
+            }),
+          })
+
+          const data = await response.json()
+          console.log('Recent payment verification response:', data)
+
+          if (response.ok && data.success) {
+            localStorage.removeItem('pendingPayment')
+            sessionStorage.removeItem('pendingPayment')
+            
+            setStatus('success')
+            setMessage('Payment successful! Your subscription has been activated.')
+            setPlan(data.plan || 'Premium')
+            setPeriod(data.period || 'monthly')
+            
+            setTimeout(() => {
+              router.push('/user-dashboard')
+            }, 3000)
+          } else {
+            setStatus('error')
+            setMessage(data.error || 'Payment verification failed')
+          }
           return
         }
 
