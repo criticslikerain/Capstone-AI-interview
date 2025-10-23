@@ -16,17 +16,39 @@ function PaymentSuccessContent() {
   useEffect(() => {
     const verifyPayment = async () => {
       try {
-        // Get pending payment from localStorage
-        const pendingPaymentStr = localStorage.getItem('pendingPayment')
+        // Try to get pending payment from localStorage or sessionStorage
+        let pendingPaymentStr = localStorage.getItem('pendingPayment') || sessionStorage.getItem('pendingPayment')
+        
+        console.log('Checking for pending payment...')
+        console.log('localStorage:', localStorage.getItem('pendingPayment'))
+        console.log('sessionStorage:', sessionStorage.getItem('pendingPayment'))
+        console.log('URL params:', window.location.search)
+        
+        // If not in storage, check URL params as fallback
+        if (!pendingPaymentStr) {
+          const urlParams = new URLSearchParams(window.location.search)
+          const sessionId = urlParams.get('session_id')
+          
+          if (sessionId && sessionId !== '{CHECKOUT_SESSION_ID}') {
+            // Create payment data from URL
+            pendingPaymentStr = JSON.stringify({
+              sessionId: sessionId,
+              timestamp: Date.now()
+            })
+          }
+        }
         
         if (!pendingPaymentStr) {
+          console.error('No pending payment found in storage or URL')
           setStatus('error')
-          setMessage('No pending payment found')
+          setMessage('No pending payment found. Please try again.')
           return
         }
 
         const pendingPayment = JSON.parse(pendingPaymentStr)
         const sessionId = pendingPayment.sessionId
+        
+        console.log('Found pending payment:', pendingPayment)
         
         // Check if payment is not too old (24 hours)
         const paymentAge = Date.now() - pendingPayment.timestamp
@@ -69,8 +91,9 @@ function PaymentSuccessContent() {
         console.log('Verification response:', data)
 
         if (response.ok && data.success) {
-          // Clear pending payment from localStorage
+          // Clear pending payment from both storages
           localStorage.removeItem('pendingPayment')
+          sessionStorage.removeItem('pendingPayment')
           
           setStatus('success')
           setMessage('Payment successful! Your subscription has been activated.')

@@ -53,14 +53,20 @@ export default function Pricing() {
       const data = await response.json()
 
       if (data.success && data.checkoutUrl) {
-        // Store session info in localStorage for verification after payment
-        localStorage.setItem('pendingPayment', JSON.stringify({
+        // Store session info in both localStorage AND sessionStorage for redundancy
+        const paymentData = {
           sessionId: data.sessionId,
           plan: plan,
           period: period,
           userId: user.uid,
           timestamp: Date.now()
-        }))
+        }
+        
+        localStorage.setItem('pendingPayment', JSON.stringify(paymentData))
+        sessionStorage.setItem('pendingPayment', JSON.stringify(paymentData))
+        
+        console.log('Stored payment data:', paymentData)
+        console.log('Redirecting to:', data.checkoutUrl)
         
         // Redirect to PayMongo checkout page
         window.location.href = data.checkoutUrl

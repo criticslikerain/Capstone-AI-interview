@@ -42,15 +42,13 @@ export async function POST(request) {
             ],
             payment_method_types: ['gcash', 'paymaya', 'card'],
             description: description || `InterviewPro ${period === 'monthly' ? 'Monthly' : 'Yearly'} Subscription`,
-            success_url: `${baseUrl}/payment-success`,
+            success_url: `${baseUrl}/payment-success?ref=${userId}-${Date.now()}`,
             cancel_url: `${baseUrl}/pricing`,
             metadata: {
               plan: plan,
               period: period,
-              userId: userId,
-              redirect_url: `${baseUrl}/payment-success`
-            },
-            reference_number: `${userId}-${Date.now()}`
+              userId: userId
+            }
           }
         }
       })
