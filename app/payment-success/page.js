@@ -16,17 +16,37 @@ function PaymentSuccessContent() {
   useEffect(() => {
     const verifyPayment = async () => {
       try {
-        const sessionId = searchParams.get('session_id')
+        // Get pending payment from localStorage
+        const pendingPaymentStr = localStorage.getItem('pendingPayment')
         
-        if (!sessionId) {
+        if (!pendingPaymentStr) {
           setStatus('error')
-          setMessage('Invalid payment session')
+          setMessage('No pending payment found')
+          return
+        }
+
+        const pendingPayment = JSON.parse(pendingPaymentStr)
+        const sessionId = pendingPayment.sessionId
+        
+        // Check if payment is not too old (24 hours)
+        const paymentAge = Date.now() - pendingPayment.timestamp
+        if (paymentAge > 24 * 60 * 60 * 1000) {
+          localStorage.removeItem('pendingPayment')
+          setStatus('error')
+          setMessage('Payment session expired')
           return
         }
 
         if (!user) {
           setStatus('error')
           setMessage('Please log in to verify your payment')
+          return
+        }
+
+        // Verify user matches
+        if (pendingPayment.userId !== user.uid) {
+          setStatus('error')
+          setMessage('User mismatch. Please contact support.')
           return
         }
 
@@ -49,6 +69,9 @@ function PaymentSuccessContent() {
         console.log('Verification response:', data)
 
         if (response.ok && data.success) {
+          // Clear pending payment from localStorage
+          localStorage.removeItem('pendingPayment')
+          
           setStatus('success')
           setMessage('Payment successful! Your subscription has been activated.')
           setPlan(data.plan || 'Premium')

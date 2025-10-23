@@ -42,13 +42,15 @@ export async function POST(request) {
             ],
             payment_method_types: ['gcash', 'paymaya', 'card'],
             description: description || `InterviewPro ${period === 'monthly' ? 'Monthly' : 'Yearly'} Subscription`,
-            success_url: `${baseUrl}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+            success_url: `${baseUrl}/payment-success`,
             cancel_url: `${baseUrl}/pricing`,
             metadata: {
               plan: plan,
               period: period,
-              userId: userId
-            }
+              userId: userId,
+              redirect_url: `${baseUrl}/payment-success`
+            },
+            reference_number: `${userId}-${Date.now()}`
           }
         }
       })
@@ -60,10 +62,18 @@ export async function POST(request) {
       throw new Error(data.errors?.[0]?.detail || 'Failed to create checkout session')
     }
 
+    // Store the session ID for later verification
+    const sessionId = data.data.id
+    
     return NextResponse.json({ 
       success: true, 
       checkoutUrl: data.data.attributes.checkout_url,
-      sessionId: data.data.id
+      sessionId: sessionId,
+      metadata: {
+        plan,
+        period,
+        userId
+      }
     })
 
   } catch (error) {
