@@ -34,36 +34,31 @@ function PaymentSuccessContent() {
             return
           }
           
-          // Try to get plan/period from URL ref parameter first
+          // Get plan/period from URL parameters
           let planInfo = { plan: 'premium', period: 'monthly' }
           
-          // Parse from URL: ref=userId-plan-period-timestamp
           const urlParams = new URLSearchParams(window.location.search)
-          const ref = urlParams.get('ref')
-          console.log('URL ref parameter:', ref)
+          const urlPlan = urlParams.get('plan')
+          const urlPeriod = urlParams.get('period')
           
-          if (ref) {
-            const parts = ref.split('-')
-            if (parts.length >= 3) {
-              // parts[0] = userId, parts[1] = plan, parts[2] = period
-              planInfo.plan = parts[1]
-              planInfo.period = parts[2]
-              console.log('Parsed from URL:', planInfo)
-            }
-          }
+          console.log('URL parameters - plan:', urlPlan, 'period:', urlPeriod)
           
-          // Fallback: try localStorage if URL parsing failed
-          if (!ref || planInfo.plan === 'premium') {
+          if (urlPlan && urlPeriod) {
+            planInfo.plan = urlPlan
+            planInfo.period = urlPeriod
+            console.log('Using plan/period from URL:', planInfo)
+          } else {
+            // Fallback: try localStorage
             try {
               const stored = localStorage.getItem('pendingPayment') || sessionStorage.getItem('pendingPayment')
               if (stored) {
                 const parsed = JSON.parse(stored)
                 if (parsed.plan) planInfo.plan = parsed.plan
                 if (parsed.period) planInfo.period = parsed.period
-                console.log('Parsed from storage:', planInfo)
+                console.log('Using plan/period from storage:', planInfo)
               }
             } catch (e) {
-              console.log('Could not parse stored payment data')
+              console.log('Could not parse stored payment data, using defaults')
             }
           }
           
