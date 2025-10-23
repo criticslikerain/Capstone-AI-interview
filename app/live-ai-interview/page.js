@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '../contexts/AuthContext'
 import { canStartInterview, incrementInterviewCount } from '../../lib/subscriptionLimits'
+import { auth } from '../../lib/firebase'
 
 export default function LiveAIInterview() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const [selectedInterviewType, setSelectedInterviewType] = useState('behavioral')
   const [selectedDifficulty, setSelectedDifficulty] = useState('intermediate')
   const [voiceRecording, setVoiceRecording] = useState(true)
@@ -14,8 +15,11 @@ export default function LiveAIInterview() {
   const [selectedCategory, setSelectedCategory] = useState('')
   const [usageInfo, setUsageInfo] = useState(null)
   const [showLimitModal, setShowLimitModal] = useState(false)
+  const [isStarting, setIsStarting] = useState(false)
 
   useEffect(() => {
+    console.log('Auth state changed - Loading:', loading, 'User:', user)
+    
     const category = sessionStorage.getItem('interviewCategory')
     if (category) {
       setSelectedCategory(category)
@@ -24,9 +28,12 @@ export default function LiveAIInterview() {
     }
     
     if (user) {
+      console.log('User detected, checking usage...')
       checkUsage()
+    } else if (!loading) {
+      console.log('No user and not loading - user is not authenticated')
     }
-  }, [user])
+  }, [user, loading])
 
   const checkUsage = async () => {
     if (!user) return
@@ -35,26 +42,91 @@ export default function LiveAIInterview() {
   }
 
   const handleStartInterview = async () => {
-    if (!user) return
+    if (isStarting) return
     
-    const canStart = await canStartInterview(user.uid)
-    
-    if (!canStart.allowed) {
-      setShowLimitModal(true)
-      return
+    try {
+      setIsStarting(true)
+      console.log('Start Interview clicked')
+      console.log('User from useAuth:', user)
+      console.log('Auth object:', auth)
+      console.log('Current user from auth:', auth.currentUser)
+      
+      // Check if user exists in auth but not in context
+      const currentUser = user || auth.currentUser
+      
+      if (!currentUser) {
+        console.error('No user found in context or auth')
+        alert('Please log in to start the interview. Redirecting to login...')
+        setIsStarting(false)
+        router.push('/login')
+        return
+      }
+      
+      console.log('Using user:', currentUser)
+      
+      console.log('Checking interview limits...')
+      const canStart = await canStartInterview(currentUser.uid)
+      console.log('Can start:', canStart)
+      
+      if (!canStart.allowed) {
+        console.log('Interview limit reached')
+        setShowLimitModal(true)
+        setIsStarting(false)
+        return
+      }
+      
+      console.log('Incrementing interview count...')
+      await incrementInterviewCount(currentUser.uid)
+      
+      const config = {
+        category: selectedCategory,
+        interviewType: selectedInterviewType,
+        difficulty: selectedDifficulty,
+        voiceRecording,
+        videoRecording
+      }
+      
+      console.log('Saving config:', config)
+      sessionStorage.setItem('interviewConfig', JSON.stringify(config))
+      
+      console.log('Navigating to voice-interview...')
+      router.push('/voice-interview')
+    } catch (error) {
+      console.error('Error starting interview:', error)
+      alert('An error occurred. Please try again.')
+      setIsStarting(false)
     }
-    
-    await incrementInterviewCount(user.uid)
-    
-    sessionStorage.setItem('interviewConfig', JSON.stringify({
-      category: selectedCategory,
-      interviewType: selectedInterviewType,
-      difficulty: selectedDifficulty,
-      voiceRecording,
-      videoRecording
-    }))
-    
-    router.push('/voice-interview')
+  }
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        fontFamily: 'Inter, sans-serif',
+        backgroundColor: '#ffffff'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round">
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                from="0 12 12"
+                to="360 12 12"
+                dur="1s"
+                repeatCount="indefinite"
+              />
+            </path>
+          </svg>
+          <p style={{ marginTop: '1rem', color: '#6b7280' }}>Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -168,7 +240,7 @@ export default function LiveAIInterview() {
           <p style={{
             fontSize: '1rem',
             color: '#6b7280',
-            marginBottom: '0.5rem'
+            marginBottom: '1.5rem'
           }}>
             Set up your personalized interview experience
           </p>
@@ -389,29 +461,56 @@ export default function LiveAIInterview() {
           {/* Start Interview Button */}
           <button
             onClick={handleStartInterview}
+            disabled={isStarting}
             style={{
               width: '100%',
               padding: '1rem 2rem',
-              backgroundColor: '#00bfa6',
+              backgroundColor: isStarting ? '#9ca3af' : '#00bfa6',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
               fontSize: '1.125rem',
               fontWeight: '600',
-              cursor: 'pointer',
+              cursor: isStarting ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.5rem',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              opacity: isStarting ? 0.7 : 1
             }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#00a38d'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#00bfa6'}
+            onMouseOver={(e) => {
+              if (!isStarting) e.target.style.backgroundColor = '#00a38d'
+            }}
+            onMouseOut={(e) => {
+              if (!isStarting) e.target.style.backgroundColor = '#00bfa6'
+            }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z"/>
-            </svg>
-            Start Interview
+            {isStarting ? (
+              <>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" opacity="0.25"/>
+                  <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round">
+                    <animateTransform
+                      attributeName="transform"
+                      type="rotate"
+                      from="0 12 12"
+                      to="360 12 12"
+                      dur="1s"
+                      repeatCount="indefinite"
+                    />
+                  </path>
+                </svg>
+                Starting...
+              </>
+            ) : (
+              <>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                Start Interview
+              </>
+            )}
           </button>
         </div>
       </div>

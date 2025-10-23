@@ -103,6 +103,38 @@ export async function POST(request) {
       profile_picture_url: picture
     };
 
+    //*******************************************************************
+    // CREATE OR GET FIREBASE AUTH USER
+    // This ensures the user exists in Firebase Auth, not just Firestore
+    //*******************************************************************
+    console.log('Creating/getting Firebase Auth user...');
+    let firebaseAuthUser;
+    try {
+      // Try to get existing auth user
+      firebaseAuthUser = await adminAuth.getUserByEmail(email);
+      console.log('Firebase Auth user exists:', firebaseAuthUser.uid);
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        // Create new Firebase Auth user
+        console.log('Creating new Firebase Auth user...');
+        firebaseAuthUser = await adminAuth.createUser({
+          uid: userId,
+          email: email,
+          emailVerified: true,
+          displayName: `${given_name || ''} ${family_name || ''}`.trim(),
+          photoURL: picture || null
+        });
+        console.log('Firebase Auth user created:', firebaseAuthUser.uid);
+      } else {
+        throw error;
+      }
+    }
+
+    // Generate custom Firebase token for client-side auth
+    console.log('Generating custom Firebase token...');
+    const customToken = await adminAuth.createCustomToken(firebaseAuthUser.uid);
+    console.log('Custom Firebase token generated');
+
     // Generate JWT token
     console.log('Generating JWT token...');
     console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'Not set');
@@ -127,6 +159,7 @@ export async function POST(request) {
 
     const response = NextResponse.json({
       message: 'Login successful',
+      customToken: customToken,
       user: {
         id: userData.id,
         email: userData.email,

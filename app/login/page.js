@@ -150,7 +150,16 @@ function LoginContent() {
       console.log('API response:', data)
 
       if (res.ok) {
-        console.log('Login successful, redirecting to:', data.redirectTo)
+        console.log('Login successful, signing in with custom token...')
+        
+        // Sign in with the custom token from Firebase
+        if (data.customToken) {
+          const { signInWithCustomToken } = await import('firebase/auth')
+          await signInWithCustomToken(auth, data.customToken)
+          console.log('Firebase Auth sign-in successful')
+        }
+        
+        console.log('Redirecting to:', data.redirectTo)
         router.replace(data.redirectTo || '/user-dashboard')
       } else {
         console.error('Login failed:', data)
