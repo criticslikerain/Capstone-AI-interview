@@ -40,7 +40,7 @@ export async function POST(request) {
                 quantity: 1
               }
             ],
-            payment_method_types: ['gcash', 'paymaya', 'card'],
+            payment_method_types: ['gcash'],
             description: description || `InterviewPro ${period === 'monthly' ? 'Monthly' : 'Yearly'} Subscription`,
             success_url: `${baseUrl}/payment-success?ref=${userId}-${Date.now()}`,
             cancel_url: `${baseUrl}/pricing`,

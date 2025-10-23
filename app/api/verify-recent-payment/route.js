@@ -3,7 +3,7 @@ import { adminDb } from '../../../lib/firebase-admin'
 
 export async function POST(request) {
   try {
-    const { userId } = await request.json()
+    const { userId, plan: requestedPlan, period: requestedPeriod } = await request.json()
 
     if (!userId) {
       return NextResponse.json(
@@ -13,6 +13,7 @@ export async function POST(request) {
     }
 
     console.log('Verifying recent payment for user:', userId)
+    console.log('Requested plan:', requestedPlan, 'period:', requestedPeriod)
 
     if (!adminDb) {
       console.error('Firebase Admin not initialized')
@@ -24,23 +25,38 @@ export async function POST(request) {
 
     // Since the user reached this page after PayMongo redirect,
     // we know they completed the checkout process
-    // Activate their subscription with default values
+    // Use the plan and period from the request, or default to premium monthly
     
-    const plan = 'premium'
-    const period = 'monthly'
+    const plan = requestedPlan || 'premium'
+    const period = requestedPeriod || 'monthly'
     
+    console.log('Activating subscription:', plan, period)
+    
+    // Calculate next billing date based on period
     const nextBillingDate = new Date()
-    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1)
+    if (period === 'yearly') {
+      nextBillingDate.setFullYear(nextBillingDate.getFullYear() + 1)
+    } else {
+      nextBillingDate.setMonth(nextBillingDate.getMonth() + 1)
+    }
+    
+    // Calculate price based on plan and period
+    let price = 399 // default premium monthly
+    if (plan === 'premium') {
+      price = period === 'yearly' ? 3830 : 399
+    } else if (plan === 'professional') {
+      price = period === 'yearly' ? 5990 : 599
+    }
 
     // Update subscription in Firebase using Admin SDK
     const subscriptionData = {
       userId,
       plan: plan,
-      price: 399,
+      price: price,
       period: period,
       status: 'active',
       nextBillingDate: nextBillingDate.toISOString(),
-      paymentMethod: 'PayMongo',
+      paymentMethod: 'PayMongo (GCash)',
       lastPaymentDate: new Date().toISOString(),
       updated_at: new Date()
     }

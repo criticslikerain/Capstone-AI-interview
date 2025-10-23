@@ -34,15 +34,30 @@ function PaymentSuccessContent() {
             return
           }
           
+          // Try to get plan/period from localStorage if available
+          let planInfo = { plan: 'premium', period: 'monthly' }
+          try {
+            const stored = localStorage.getItem('pendingPayment') || sessionStorage.getItem('pendingPayment')
+            if (stored) {
+              const parsed = JSON.parse(stored)
+              if (parsed.plan) planInfo.plan = parsed.plan
+              if (parsed.period) planInfo.period = parsed.period
+            }
+          } catch (e) {
+            console.log('Could not parse stored payment data')
+          }
+          
           // Call API to find and verify the most recent payment for this user
-          console.log('Verifying recent payment for user:', user.uid)
+          console.log('Verifying recent payment for user:', user.uid, 'with plan:', planInfo)
           const response = await fetch('/api/verify-recent-payment', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              userId: user.uid
+              userId: user.uid,
+              plan: planInfo.plan,
+              period: planInfo.period
             }),
           })
 
